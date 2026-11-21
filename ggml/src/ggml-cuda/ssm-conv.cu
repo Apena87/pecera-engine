@@ -4,7 +4,7 @@
 
 template <bool apply_silu, size_t split_d_inner, size_t d_conv>
 static __global__ void ssm_conv_f32(const float * src0_ptr, const float * src1_ptr,
-                                    const float * bias_ptr,
+                                    const float * bias_ptr, const float * resid_ptr, const float res_scale, const float res_bias,
                                     const int src0_nb0, const int src0_nb1, const int src0_nb2, const int src1_nb1,
                                     float * dst_ptr, const int dst_nb0, const int dst_nb1, const int dst_nb2,
                                     const int64_t n_t) {
@@ -21,6 +21,7 @@ static __global__ void ssm_conv_f32(const float * src0_ptr, const float * src1_p
     const float * x_block = (const float *) ((const char *) src0 + bidx * src0_nb2 + bidy * split_d_inner * src0_nb1);
     const float * w_block = (const float *) ((const char *) src1 + bidy * split_d_inner * src1_nb1);
     float *       y_block = (float *) ((char *) dst + bidx * dst_nb2 + bidy * split_d_inner * dst_nb0);
+    const float * r_block = resid_ptr ? resid_ptr + (y_block - dst) : nullptr;
 
     const int stride_x = src0_nb1 / sizeof(float);
     const int stride_w = src1_nb1 / sizeof(float);
@@ -53,13 +54,17 @@ static __global__ void ssm_conv_f32(const float * src0_ptr, const float * src1_p
             sumf += x[(i + j) % d_conv] * w[j];
         }
         sumf += b;
+        if (r_block) {
+            sumf = (r_block[i * stride_y + tid] + sumf) * res_scale + res_bias;
+        }
         y_block[i * stride_y + tid] = apply_silu ? ggml_cuda_op_silu_single(sumf) : sumf;
     }
 }
 
 template <bool apply_silu, size_t split_d_inner, size_t d_conv, int64_t split_n_t>
 static __global__ void ssm_conv_long_token_f32(const float * __restrict__ src0, const float * __restrict__ src1,
-                                               const float * __restrict__ bias,
+                                               const float * __restrict__ bias, const float * __restrict__ resid,
+                                               const float res_scale, const float res_bias,
                                                const int src0_nb0, const int src0_nb1, const int src0_nb2,
                                                const int src1_nb1, float * __restrict__ dst, const int dst_nb0,
                                                const int dst_nb1, const int dst_nb2, const int64_t n_t) {
@@ -73,6 +78,7 @@ static __global__ void ssm_conv_long_token_f32(const float * __restrict__ src0, 
     const float * w_block = (const float *) ((const char *) src1 + bidy * split_d_inner * src1_nb1);
     float *       y_block =
         (float *) ((char *) dst + bidx * dst_nb2 + bidz * split_n_t * dst_nb1 + bidy * split_d_inner * dst_nb0);
+    const float * r_block = resid ? resid + (y_block - dst) : nullptr;
 
     const int stride_x = src0_nb1 / sizeof(float);
     const int stride_w = src1_nb1 / sizeof(float);
@@ -119,12 +125,16 @@ static __global__ void ssm_conv_long_token_f32(const float * __restrict__ src0, 
             sumf += smem[tid * n_cols + i + j] * w[j];
         }
         sumf += b;
+        if (r_block) {
+            sumf = (r_block[i * stride_y + tid] + sumf) * res_scale + res_bias;
+        }
         y_block[i * stride_y + tid] = apply_silu ? ggml_cuda_op_silu_single(sumf) : sumf;
     }
 }
 
 template <bool apply_silu>
-static void ssm_conv_f32_cuda(const float * src0, const float * src1, const float * bias, const int src0_nb0, const int src0_nb1,
+static void ssm_conv_f32_cuda(const float * src0, const float * src1, const float * bias, const float * resid, const float res_scale,
+                              const float res_bias, const int src0_nb0, const int src0_nb1,
                               const int src0_nb2, const int src1_nb1, float * dst, const int dst_nb0, const int dst_nb1,
                               const int dst_nb2, const int64_t nc, const int64_t nr, const int64_t n_t,
                               const int64_t n_s, cudaStream_t stream) {
@@ -136,14 +146,14 @@ static void ssm_conv_f32_cuda(const float * src0, const float * src1, const floa
         if (n_t <= 32) {
             const dim3 blocks(n_s, (nr + threads - 1) / threads, 1);
             const ggml_cuda_kernel_launch_params launch_params = ggml_cuda_kernel_launch_params(blocks, threads, 0, stream);
-            ggml_cuda_kernel_launch(ssm_conv_f32<apply_silu, threads, kNC>, launch_params, src0, src1, bias, src0_nb0, src0_nb1,
+            ggml_cuda_kernel_launch(ssm_conv_f32<apply_silu, threads, kNC>, launch_params, src0, src1, bias, resid, res_scale, res_bias, src0_nb0, src0_nb1,
                                                                         src0_nb2, src1_nb1, dst, dst_nb0, dst_nb1, dst_nb2, n_t);
         } else {
             const int64_t split_n_t = 32;
             dim3          blocks(n_s, (nr + threads - 1) / threads, (n_t + split_n_t - 1) / split_n_t);
             const size_t  smem_size = threads * (kNC - 1 + split_n_t) * sizeof(float);
             ssm_conv_long_token_f32<apply_silu, threads, kNC, split_n_t><<<blocks, threads, smem_size, stream>>>(
-                src0, src1, bias, src0_nb0, src0_nb1, src0_nb2, src1_nb1, dst, dst_nb0, dst_nb1, dst_nb2, n_t);
+                src0, src1, bias, resid, res_scale, res_bias, src0_nb0, src0_nb1, src0_nb2, src1_nb1, dst, dst_nb0, dst_nb1, dst_nb2, n_t);
         }
     };
 
@@ -159,7 +169,8 @@ static void ssm_conv_f32_cuda(const float * src0, const float * src1, const floa
     }
 }
 
-void ggml_cuda_op_ssm_conv(ggml_backend_cuda_context & ctx, ggml_tensor * dst, ggml_tensor * bias_add_node, ggml_tensor * silu_dst) {
+void ggml_cuda_op_ssm_conv(ggml_backend_cuda_context & ctx, ggml_tensor * dst, ggml_tensor * bias_add_node, ggml_tensor * silu_dst,
+                           ggml_tensor * resid_add_node, ggml_tensor * scale_dst) {
     const struct ggml_tensor * src0 = dst->src[0];  // conv_x
     const struct ggml_tensor * src1 = dst->src[1];  // conv1d.weight
     const bool fuse_bias = bias_add_node != nullptr;
@@ -171,15 +182,22 @@ void ggml_cuda_op_ssm_conv(ggml_backend_cuda_context & ctx, ggml_tensor * dst, g
     // The bias (when fused) is the non-conv operand of the ADD node.
     const struct ggml_tensor * bias = fuse_bias ? (bias_add_node->src[0] == dst ? bias_add_node->src[1] : bias_add_node->src[0]) : nullptr;
 
+    const bool fuse_resid = resid_add_node != nullptr;
+    GGML_ASSERT(!fuse_resid || (!fuse_bias && !fuse_silu && scale_dst));
+    const struct ggml_tensor * resid = fuse_resid ? (resid_add_node->src[0] == dst ? resid_add_node->src[1] : resid_add_node->src[0]) : nullptr;
+    const float res_scale = fuse_resid ? ggml_get_op_params_f32(scale_dst, 0) : 1.0f;
+    const float res_bias  = fuse_resid ? ggml_get_op_params_f32(scale_dst, 1) : 0.0f;
+
     // When fusing, write to silu_dst (the node downstream references).
-    const struct ggml_tensor * out = fuse_silu ? silu_dst : dst;
+    const struct ggml_tensor * out = fuse_silu ? silu_dst : fuse_resid ? scale_dst : dst;
 
     const int64_t nc  = src1->ne[0];                // d_conv
     const int64_t nr  = src0->ne[1];                // d_inner
-    const int64_t n_t = out->ne[1];                 // tokens per sequence
-    const int64_t n_s = out->ne[2];                 // number of sequences in the batch
+    const struct ggml_tensor * geo = out;
+    const int64_t n_t = geo->ne[1];                 // tokens per sequence
+    const int64_t n_s = geo->ne[2];                 // number of sequences in the batch
 
-    GGML_ASSERT(out->ne[0] == nr);
+    GGML_ASSERT(geo->ne[0] == nr);
     GGML_ASSERT(src0->nb[0] == sizeof(float));
     GGML_ASSERT(src1->nb[0] == sizeof(float));
     GGML_ASSERT(src0->nb[1] == src0->ne[0] * sizeof(float));
@@ -188,6 +206,11 @@ void ggml_cuda_op_ssm_conv(ggml_backend_cuda_context & ctx, ggml_tensor * dst, g
     const float * src1_d = (const float *) src1->data;
     const float * bias_d = fuse_bias ? (const float *) bias->data : nullptr;
     float *       dst_d  = (float *) out->data;
+    const float * resid_d = fuse_resid ? (const float *) resid->data : nullptr;
+    if (fuse_resid) {
+        GGML_ASSERT(resid->type == GGML_TYPE_F32 && ggml_is_contiguous(resid) && ggml_is_contiguous(out));
+        GGML_ASSERT(ggml_nelements(resid) == ggml_nelements(out));
+    }
     cudaStream_t  stream = ctx.stream();
 
     GGML_ASSERT(src0->type == GGML_TYPE_F32);
@@ -199,10 +222,10 @@ void ggml_cuda_op_ssm_conv(ggml_backend_cuda_context & ctx, ggml_tensor * dst, g
     }
 
     if (fuse_silu) {
-        ssm_conv_f32_cuda<true>(src0_d, src1_d, bias_d, src0->nb[0], src0->nb[1], src0->nb[2], src1->nb[1], dst_d, out->nb[0], out->nb[1],
-                          out->nb[2], nc, nr, n_t, n_s, stream);
+        ssm_conv_f32_cuda<true>(src0_d, src1_d, bias_d, resid_d, res_scale, res_bias, src0->nb[0], src0->nb[1], src0->nb[2], src1->nb[1], dst_d, geo->nb[0], geo->nb[1],
+                          geo->nb[2], nc, nr, n_t, n_s, stream);
     } else {
-        ssm_conv_f32_cuda<false>(src0_d, src1_d, bias_d, src0->nb[0], src0->nb[1], src0->nb[2], src1->nb[1], dst_d, out->nb[0], out->nb[1],
-                          out->nb[2], nc, nr, n_t, n_s, stream);
+        ssm_conv_f32_cuda<false>(src0_d, src1_d, bias_d, resid_d, res_scale, res_bias, src0->nb[0], src0->nb[1], src0->nb[2], src1->nb[1], dst_d, geo->nb[0], geo->nb[1],
+                          geo->nb[2], nc, nr, n_t, n_s, stream);
     }
 }

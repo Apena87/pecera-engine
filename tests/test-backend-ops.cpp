@@ -4931,6 +4931,42 @@ struct test_ssm_conv_bias_silu : public test_case {
 };
 
 // GGML_OP_SSM_SCAN
+// GGML_OP_SSM_CONV + GGML_OP_ADD (residual) + GGML_OP_SCALE (fused operation)
+struct test_ssm_conv_residual_scale : public test_case {
+    const ggml_type type;
+    const std::array<int64_t, 4> ne_a;
+    const std::array<int64_t, 4> ne_b;
+
+    std::string op_desc(ggml_tensor * t) override {
+        GGML_UNUSED(t);
+        return "SSM_CONV_RESIDUAL_SCALE";
+    }
+
+    bool run_whole_graph() override { return true; }
+
+    std::string vars() override {
+        return VARS_TO_STR3(type, ne_a, ne_b);
+    }
+
+    test_ssm_conv_residual_scale(ggml_type type, std::array<int64_t, 4> ne_a, std::array<int64_t, 4> ne_b)
+        : type(type), ne_a(ne_a), ne_b(ne_b) {}
+
+    ggml_tensor * build_graph(ggml_context * ctx) override {
+        ggml_tensor * a = ggml_new_tensor(ctx, type, 4, ne_a.data());
+        ggml_tensor * b = ggml_new_tensor(ctx, type, 4, ne_b.data());
+        ggml_set_name(a, "a");
+        ggml_set_name(b, "b");
+
+        ggml_tensor * out   = ggml_ssm_conv(ctx, a, b);
+        ggml_tensor * resid = ggml_new_tensor(ctx, type, 4, out->ne);
+        ggml_set_name(resid, "resid");
+
+        out = ggml_scale_bias(ctx, ggml_add(ctx, resid, out), 0.4472136f, 0.25f);
+        ggml_set_name(out, "out");
+        return out;
+    }
+};
+
 struct test_ssm_scan : public test_case {
     const ggml_type type;
 
@@ -11961,6 +11997,14 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
                     GGML_TYPE_F32, {d_conv - 1 + 64, d_inner, 1, 1}, {d_conv, d_inner, 1, 1}, fuse_bias));
                 test_cases.emplace_back(new test_ssm_conv_bias_silu(
                     GGML_TYPE_F32, {d_conv - 1 + 64, d_inner, 4, 1}, {d_conv, d_inner, 1, 1}, fuse_bias));
+            }
+        }
+    }
+
+    for (int64_t d_inner : {1024, 2304}) {
+        for (int64_t n_t : {1, 7, 64}) {
+            for (int64_t n_s : {1, 3}) {
+                test_cases.emplace_back(new test_ssm_conv_residual_scale(GGML_TYPE_F32, {3 + n_t, d_inner, n_s, 1}, {4, d_inner, 1, 1}));
             }
         }
     }

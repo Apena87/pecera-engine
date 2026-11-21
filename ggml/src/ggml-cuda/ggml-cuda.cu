@@ -4428,6 +4428,17 @@ static bool ggml_cuda_can_fuse(const struct ggml_cgraph *                cgraph,
         return true;
     }
 
+    if (ops.size() == 3 && ops.begin()[0] == GGML_OP_SSM_CONV && ops.begin()[1] == GGML_OP_ADD && ops.begin()[2] == GGML_OP_SCALE) {
+        const ggml_tensor * ssm_conv = cgraph->nodes[node_idx];
+        const ggml_tensor * add      = cgraph->nodes[node_idx+1];
+        const ggml_tensor * scale    = cgraph->nodes[node_idx+2];
+        const ggml_tensor * resid    = add->src[0] == ssm_conv ? add->src[1] : add->src[0];
+
+        return ssm_conv->type == GGML_TYPE_F32 && add->type == GGML_TYPE_F32 && scale->type == GGML_TYPE_F32 &&
+               resid->type == GGML_TYPE_F32 && ggml_is_contiguous(resid) && ggml_are_same_shape(resid, ssm_conv) &&
+               ggml_is_contiguous(scale);
+    }
+
     if (ops.size() == 3 && ops.begin()[0] == GGML_OP_SSM_CONV && ops.begin()[1] == GGML_OP_ADD
      && ops.begin()[2] == GGML_OP_UNARY && unary_ops.size() == 1 && unary_ops.begin()[0] == GGML_UNARY_OP_SILU) {
         const ggml_tensor * ssm_conv = cgraph->nodes[node_idx];
@@ -5345,6 +5356,11 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph 
     if (ggml_cuda_can_fuse(cgraph, i, { GGML_OP_RMS_NORM, GGML_OP_SCALE }, {})) {
         ggml_cuda_op_rms_norm_scale_fused(*cuda_ctx, node, cgraph->nodes[i + 1]);
         return 1;
+    }
+
+    if (ggml_cuda_can_fuse(cgraph, i, { GGML_OP_SSM_CONV, GGML_OP_ADD, GGML_OP_SCALE }, {})) {
+        ggml_cuda_op_ssm_conv(*cuda_ctx, node, nullptr, nullptr, cgraph->nodes[i + 1], cgraph->nodes[i + 2]);
+        return 2;
     }
 
     if (ggml_cuda_can_fuse(cgraph, i, { GGML_OP_SSM_CONV, GGML_OP_ADD, GGML_OP_UNARY }, { GGML_UNARY_OP_SILU })) {

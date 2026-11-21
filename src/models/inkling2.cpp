@@ -217,27 +217,31 @@ ggml_tensor * llama_model_inkling2::graph::convolve(
     build_conv_state_store(inp, state, x, n_conv - 1, offset*(n_conv - 1)*ggml_element_size(state));
 
     ggml_tensor * out = ggml_ssm_conv(ctx0, x, weight);
-    out = ggml_reshape_2d(ctx0, out, n_channels, n_tokens);
 
-    if (dynamic) {
-        const int64_t n_heads = dynamic->ne[0]/n_conv;
-
-        dynamic = ggml_reshape_3d(ctx0, dynamic, n_conv, n_heads, n_tokens);
-
-        for (int64_t lag = 0; lag < n_conv; ++lag) {
-            ggml_tensor * tap    = ggml_view_3d(ctx0, dynamic, 1, n_heads, n_tokens, dynamic->nb[1], dynamic->nb[2], lag*dynamic->nb[0]);
-            ggml_tensor * window = ggml_view_3d(ctx0, x, n_seq_tokens, n_channels, n_seqs, x->nb[1], x->nb[2], (n_conv - 1 - lag)*x->nb[0]);
-
-            window = ggml_cont(ctx0, ggml_transpose(ctx0, window));
-            window = ggml_reshape_3d(ctx0, window, n_channels/n_heads, n_heads, n_tokens);
-
-            ggml_tensor * term = ggml_reshape_2d(ctx0, ggml_mul(ctx0, window, tap), n_channels, n_tokens);
-
-            out = ggml_add(ctx0, out, term);
-        }
+    if (!dynamic) {
+        out = ggml_add(ctx0, ggml_reshape_3d(ctx0, cur, n_channels, n_seq_tokens, n_seqs), out);
+        return ggml_reshape_2d(ctx0, ggml_scale(ctx0, out, 1.0f/sqrtf(n_conv + 1)), n_channels, n_tokens);
     }
 
-    return ggml_scale(ctx0, ggml_add(ctx0, cur, out), 1.0f/sqrtf((dynamic ? 2 : 1)*n_conv + 1));
+    out = ggml_reshape_2d(ctx0, out, n_channels, n_tokens);
+
+    const int64_t n_heads = dynamic->ne[0]/n_conv;
+
+    dynamic = ggml_reshape_3d(ctx0, dynamic, n_conv, n_heads, n_tokens);
+
+    for (int64_t lag = 0; lag < n_conv; ++lag) {
+        ggml_tensor * tap    = ggml_view_3d(ctx0, dynamic, 1, n_heads, n_tokens, dynamic->nb[1], dynamic->nb[2], lag*dynamic->nb[0]);
+        ggml_tensor * window = ggml_view_3d(ctx0, x, n_seq_tokens, n_channels, n_seqs, x->nb[1], x->nb[2], (n_conv - 1 - lag)*x->nb[0]);
+
+        window = ggml_cont(ctx0, ggml_transpose(ctx0, window));
+        window = ggml_reshape_3d(ctx0, window, n_channels/n_heads, n_heads, n_tokens);
+
+        ggml_tensor * term = ggml_reshape_2d(ctx0, ggml_mul(ctx0, window, tap), n_channels, n_tokens);
+
+        out = ggml_add(ctx0, out, term);
+    }
+
+    return ggml_scale(ctx0, ggml_add(ctx0, cur, out), 1.0f/sqrtf(2*n_conv + 1));
 }
 
 // mix a cross-pass message into a looped layer input: (1 - forget)*cur + gain*message, both gated on cur and message
