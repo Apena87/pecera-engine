@@ -2664,6 +2664,11 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
             cur = amax_src1.res;
         }
 
+        // pecera: the down tensor may be zero-padded to the quant block size (mixB: 1152 -> 1280)
+        if (down_exps->ne[0] > cur->ne[0]) {
+            cur = ggml_pad(ctx0, cur, down_exps->ne[0] - cur->ne[0], 0, 0, 0);
+        }
+
         ggml_tensor * experts = build_lora_mm_id(down_exps, cur, ids, mm_ids, cached); // [n_embd, n_expert_used, n_tokens]
         cb(experts, "ffn_moe_down", il);
 
