@@ -164,18 +164,34 @@ std::unique_ptr<llm_graph_context> llama_model_inkling2::build_arch_graph(const 
 
 // attention over the depth: mix the earlier block outputs and cur with learned queries
 ggml_tensor * llama_model_inkling2::graph::mix(const std::vector<ggml_tensor *> & blocks, ggml_tensor * cur, ggml_tensor * query) {
-    ggml_tensor * states = ggml_reshape_3d(ctx0, cur, n_embd, 1, n_tokens);
-    for (ggml_tensor * block : blocks) {
-        states = ggml_concat(ctx0, ggml_reshape_3d(ctx0, block, n_embd, 1, n_tokens), states, 1);
+    ggml_tensor * normed = ggml_rms_norm(ctx0, ggml_reshape_3d(ctx0, cur, n_embd, 1, n_tokens), 1e-6f);
+
+    ggml_tensor * states   = normed;
+    ggml_tensor * states_t = ggml_reshape_3d(ctx0, normed, 1, n_embd, n_tokens);
+    if (!blocks.empty()) {
+        auto it = stacks.find(blocks);
+        if (it == stacks.end()) {
+            ggml_tensor * stack = ggml_reshape_3d(ctx0, blocks[0], n_embd, 1, n_tokens);
+            for (size_t i = 1; i < blocks.size(); ++i) {
+                stack = ggml_concat(ctx0, stack, ggml_reshape_3d(ctx0, blocks[i], n_embd, 1, n_tokens), 1);
+            }
+            stack = ggml_rms_norm(ctx0, stack, 1e-6f);
+            it = stacks.emplace(blocks, std::make_pair(stack, ggml_cont(ctx0, ggml_transpose(ctx0, stack)))).first;
+        }
+        states   = ggml_concat(ctx0, it->second.first,  states,   1);
+        states_t = ggml_concat(ctx0, it->second.second, states_t, 0);
     }
-    states = ggml_rms_norm(ctx0, states, 1e-6f);
 
-    ggml_tensor * queries = ggml_repeat(ctx0, query, ggml_new_tensor_3d(ctx0, GGML_TYPE_F32, n_embd, query->ne[1], n_tokens));
-
-    ggml_tensor * scores = ggml_mul_mat(ctx0, states, queries);
+    ggml_tensor * scores;
+    if (query->ne[1] == 1) {
+        scores = ggml_reshape_3d(ctx0, ggml_mul_mat(ctx0, query, states), states->ne[1], 1, n_tokens);
+    } else {
+        ggml_tensor * queries = ggml_repeat(ctx0, query, ggml_new_tensor_3d(ctx0, GGML_TYPE_F32, n_embd, query->ne[1], n_tokens));
+        scores = ggml_mul_mat(ctx0, states, queries);
+    }
     scores = ggml_soft_max_ext(ctx0, scores, nullptr, 1.0f/sqrtf(n_embd), 0.0f);
 
-    return ggml_mul_mat(ctx0, ggml_cont(ctx0, ggml_transpose(ctx0, states)), scores);
+    return ggml_mul_mat(ctx0, states_t, scores);
 }
 
 // causal short convolution with a residual; dynamic adds input-dependent taps per head
