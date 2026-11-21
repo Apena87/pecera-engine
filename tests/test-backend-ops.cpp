@@ -4931,6 +4931,34 @@ struct test_ssm_conv_bias_silu : public test_case {
 };
 
 // GGML_OP_SSM_SCAN
+// GGML_OP_TANH_GATE_MIX
+struct test_tanh_gate_mix : public test_case {
+    const std::array<int64_t, 4> ne;
+    const bool strided_y;
+
+    std::string vars() override {
+        return VARS_TO_STR2(ne, strided_y);
+    }
+
+    test_tanh_gate_mix(std::array<int64_t, 4> ne = { 2304, 7, 1, 1 }, bool strided_y = false) : ne(ne), strided_y(strided_y) {}
+
+    ggml_tensor * build_graph(ggml_context * ctx) override {
+        ggml_tensor * x = ggml_new_tensor(ctx, GGML_TYPE_F32, 4, ne.data());
+        ggml_tensor * y = x;
+        if (strided_y) {
+            ggml_tensor * ys = ggml_new_tensor_4d(ctx, GGML_TYPE_F32, ne[0], 4, ne[1]*ne[2]*ne[3], 1);
+            y = ggml_view_4d(ctx, ys, ne[0], ne[1], ne[2], ne[3], ys->nb[2], ys->nb[2]*ne[1], ys->nb[2]*ne[1]*ne[2], 2*ys->nb[1]);
+        } else {
+            y = ggml_new_tensor(ctx, GGML_TYPE_F32, 4, ne.data());
+        }
+        ggml_tensor * gates = ggml_new_tensor_4d(ctx, GGML_TYPE_F32, 2*ne[0], ne[1], ne[2], ne[3]);
+
+        ggml_tensor * out = ggml_tanh_gate_mix(ctx, x, y, gates);
+        ggml_set_name(out, "out");
+        return out;
+    }
+};
+
 // GGML_OP_DEPTH_MIX
 struct test_depth_mix : public test_case {
     const int64_t n_embd;
@@ -12030,6 +12058,12 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
                     GGML_TYPE_F32, {d_conv - 1 + 64, d_inner, 4, 1}, {d_conv, d_inner, 1, 1}, fuse_bias));
             }
         }
+    }
+
+    for (bool strided_y : {false, true}) {
+        test_cases.emplace_back(new test_tanh_gate_mix({2304, 1, 1, 1}, strided_y));
+        test_cases.emplace_back(new test_tanh_gate_mix({2304, 33, 1, 1}, strided_y));
+        test_cases.emplace_back(new test_tanh_gate_mix({100, 5, 3, 2}, strided_y));
     }
 
     for (int64_t n_stack : {0, 1, 5, 12}) {

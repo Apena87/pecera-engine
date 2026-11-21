@@ -1100,6 +1100,7 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "DSV4_HC_POST",
     "TOP_K_MASK",
     "DEPTH_MIX",
+    "TANH_GATE_MIX",
 
     "UNARY",
 
@@ -1119,7 +1120,7 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "SLEEP",
 };
 
-static_assert(GGML_OP_COUNT == 101, "GGML_OP_COUNT != 101");
+static_assert(GGML_OP_COUNT == 102, "GGML_OP_COUNT != 102");
 
 static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "none",
@@ -1216,6 +1217,7 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "dsv4_hc_post(x, residual, post, comb)",
     "top_k_mask(mask, top_k, score, blocks, extra)",
     "depth_mix(stack, x, query)",
+    "tanh_gate_mix(x, y, gates)",
 
     "unary(x)",
 
@@ -1235,7 +1237,7 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "sleep(x)",
 };
 
-static_assert(GGML_OP_COUNT == 101, "GGML_OP_COUNT != 101");
+static_assert(GGML_OP_COUNT == 102, "GGML_OP_COUNT != 102");
 
 static_assert(GGML_OP_POOL_COUNT == 2, "GGML_OP_POOL_COUNT != 2");
 
@@ -6667,6 +6669,28 @@ struct ggml_tensor * ggml_depth_mix(
     result->src[0] = x;
     result->src[1] = query;
     result->src[2] = stack;
+
+    return result;
+}
+
+// ggml_tanh_gate_mix
+
+struct ggml_tensor * ggml_tanh_gate_mix(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * x,
+        struct ggml_tensor  * y,
+        struct ggml_tensor  * gates) {
+    GGML_ASSERT(x->type == GGML_TYPE_F32 && y->type == GGML_TYPE_F32 && gates->type == GGML_TYPE_F32);
+    GGML_ASSERT(ggml_is_contiguous_rows(x) && ggml_is_contiguous_rows(y) && ggml_is_contiguous_rows(gates));
+    GGML_ASSERT(ggml_are_same_shape(x, y));
+    GGML_ASSERT(gates->ne[0] == 2*x->ne[0] && gates->ne[1] == x->ne[1] && gates->ne[2] == x->ne[2] && gates->ne[3] == x->ne[3]);
+
+    struct ggml_tensor * result = ggml_new_tensor(ctx, GGML_TYPE_F32, GGML_MAX_DIMS, x->ne);
+
+    result->op     = GGML_OP_TANH_GATE_MIX;
+    result->src[0] = x;
+    result->src[1] = y;
+    result->src[2] = gates;
 
     return result;
 }

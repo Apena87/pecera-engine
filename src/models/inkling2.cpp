@@ -243,10 +243,12 @@ ggml_tensor * llama_model_inkling2::graph::control(ggml_tensor * cur, ggml_tenso
     ggml_tensor * gate = ggml_concat(ctx0, it->second, message_normed, 0);
     gate = build_lora_mm(loop.ctrl_down[ctrl], gate);
 
-    ggml_tensor * gain   = ggml_tanh(ctx0, build_lora_mm(loop.ctrl_gain[ctrl],   gate));
-    ggml_tensor * forget = ggml_tanh(ctx0, build_lora_mm(loop.ctrl_forget[ctrl], gate));
+    auto gain_forget = gains_forgets.find(loop.ctrl_gain[ctrl]);
+    if (gain_forget == gains_forgets.end()) {
+        gain_forget = gains_forgets.emplace(loop.ctrl_gain[ctrl], ggml_concat(ctx0, loop.ctrl_gain[ctrl], loop.ctrl_forget[ctrl], 1)).first;
+    }
 
-    return ggml_add(ctx0, ggml_sub(ctx0, cur, ggml_mul(ctx0, forget, cur)), ggml_mul(ctx0, gain, message));
+    return ggml_tanh_gate_mix(ctx0, cur, message, ggml_mul_mat(ctx0, gain_forget->second, gate));
 }
 
 ggml_tensor * llama_model_inkling2::graph::build_inputs() {

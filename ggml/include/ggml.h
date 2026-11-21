@@ -416,6 +416,7 @@ extern "C" {
         GGML_OP_DSV4_HC_POST,
         GGML_OP_TOP_K_MASK,
         GGML_OP_DEPTH_MIX,
+        GGML_OP_TANH_GATE_MIX,
 
         GGML_OP_UNARY,
 
@@ -2547,6 +2548,17 @@ extern "C" {
             struct ggml_tensor  * query,
             float                 eps,
             float                 scale);
+
+    // tanh-gated mix of two rows (Inkling 2 loop controllers)
+    // x, y:  [n, ne1, ne2, ne3] f32, rows contiguous
+    // gates: [2*n, ne1, ne2, ne3] f32, rows contiguous: the gain g then the forget f
+    // res:   [n, ne1, ne2, ne3] f32, res = x*(1 - tanh(f)) + y*tanh(g)
+    //
+    GGML_API struct ggml_tensor * ggml_tanh_gate_mix(
+            struct ggml_context * ctx,
+            struct ggml_tensor  * x,
+            struct ggml_tensor  * y,
+            struct ggml_tensor  * gates);
 
     // custom operators
 

@@ -12611,3 +12611,31 @@ void ggml_compute_forward_depth_mix(
         }
     }
 }
+
+// ggml_compute_forward_tanh_gate_mix
+
+void ggml_compute_forward_tanh_gate_mix(
+        const ggml_compute_params * params,
+        ggml_tensor * dst) {
+    const ggml_tensor * x     = dst->src[0];
+    const ggml_tensor * y     = dst->src[1];
+    const ggml_tensor * gates = dst->src[2];
+
+    const int64_t n     = x->ne[0];
+    const int64_t nrows = ggml_nrows(x);
+
+    for (int64_t r = params->ith; r < nrows; r += params->nth) {
+        const int64_t i1 = r % x->ne[1];
+        const int64_t i2 = (r / x->ne[1]) % x->ne[2];
+        const int64_t i3 = r / (x->ne[1]*x->ne[2]);
+
+        const float * xr = (const float *) ((const char *) x->data     + i1*x->nb[1]     + i2*x->nb[2]     + i3*x->nb[3]);
+        const float * yr = (const float *) ((const char *) y->data     + i1*y->nb[1]     + i2*y->nb[2]     + i3*y->nb[3]);
+        const float * gr = (const float *) ((const char *) gates->data + i1*gates->nb[1] + i2*gates->nb[2] + i3*gates->nb[3]);
+        float       * dr = (float       *) ((char       *) dst->data   + i1*dst->nb[1]   + i2*dst->nb[2]   + i3*dst->nb[3]);
+
+        for (int64_t i = 0; i < n; ++i) {
+            dr[i] = xr[i]*(1.0f - tanhf(gr[n + i])) + yr[i]*tanhf(gr[i]);
+        }
+    }
+}
