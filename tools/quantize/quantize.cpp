@@ -122,8 +122,11 @@ static bool try_parse_ftype(const std::string & ftype_str_in, llama_ftype & ftyp
 static void usage(const char * executable) {
     printf("usage: %s [--help] [--allow-requantize] [--leave-output-tensor] [--pure] [--imatrix] [--include-weights]\n", executable);
     printf("       [--exclude-weights] [--output-tensor-type] [--token-embedding-type] [--tensor-type] [--tensor-type-file]\n");
-    printf("       [--prune-layers] [--keep-split] [--override-kv] [--dry-run] [--max-buffer-size]\n");
+    printf("       [--prune-layers] [--keep-split] [--override-kv] [--dry-run] [--pad-exps] [--max-buffer-size]\n");
     printf("       model-f32.gguf [model-quant.gguf] type [nthreads]\n\n");
+    printf("  --pad-exps\n");
+    printf("                                      zero-pad ffn_down_exps rows to the target type's block size instead of\n");
+    printf("                                      falling back to a wider type (needs a model whose graph pads the input)\n");
     printf("  --allow-requantize\n");
     printf("                                      allow requantizing tensors that have already been quantized\n");
     printf("                                      WARNING: this can severely reduce quality compared to quantizing\n");
@@ -446,6 +449,8 @@ int llama_quantize(int argc, char ** argv) {
             }
         } else if (strcmp(argv[arg_idx], "--dry-run") == 0) {
             params.dry_run = true;
+        } else if (strcmp(argv[arg_idx], "--pad-exps") == 0) {
+            params.pad_exps = true;
         } else if (strcmp(argv[arg_idx], "--allow-requantize") == 0) {
             params.allow_requantize = true;
         } else if (strcmp(argv[arg_idx], "--pure") == 0) {

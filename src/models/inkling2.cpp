@@ -152,7 +152,9 @@ void llama_model_inkling2::load_arch_tensors(llama_model_loader &) {
         layer.ffn_gate_inp     = create_tensor(tn(LLM_TENSOR_FFN_GATE_INP,     "weight", i), {n_embd, n_expert}, 0);
         layer.ffn_exp_probs_b  = create_tensor(tn(LLM_TENSOR_FFN_EXP_PROBS_B,  "bias",   i), {n_expert}, TENSOR_NOT_REQUIRED);
         layer.ffn_gate_up_exps = create_tensor(tn(LLM_TENSOR_FFN_GATE_UP_EXPS, "weight", i), {n_embd, 2*n_ff_exp, n_expert}, 0);
-        layer.ffn_down_exps    = create_tensor(tn(LLM_TENSOR_FFN_DOWN_EXPS,    "weight", i), {n_ff_exp, n_embd, n_expert}, 0);
+        const ggml_tensor * down_meta = ml->get_tensor_meta(tn(LLM_TENSOR_FFN_DOWN_EXPS, "weight", i).str().c_str());
+        const int64_t n_ff_down = down_meta ? std::max(n_ff_exp, down_meta->ne[0]) : n_ff_exp;
+        layer.ffn_down_exps    = create_tensor(tn(LLM_TENSOR_FFN_DOWN_EXPS,    "weight", i), {n_ff_down, n_embd, n_expert}, 0);
     }
 }
 

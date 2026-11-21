@@ -222,6 +222,7 @@ struct tensor_metadata {
     std::string     remapped_imatrix_name;
     bool            allows_quantization;
     bool            requires_imatrix;
+    int64_t         n_pad = 0;
 };
 
 //
@@ -468,6 +469,10 @@ static ggml_type tensor_type_fallback(quantize_state_impl & qs, const ggml_tenso
 
     const int64_t ncols = t->ne[0];
     const int64_t qk_k = ggml_blck_size(target_type);
+
+    if (ncols % qk_k != 0 && qs.params->pad_exps && std::strstr(t->name, "ffn_down_exps")) {
+        return target_type;
+    }
 
     if (ncols % qk_k != 0) { // this tensor's shape is incompatible with this quant
         LLAMA_LOG_WARN("warning: %-36s - ncols %6" PRId64 " not divisible by %3" PRId64 " (required for type %7s) ",
@@ -1200,14 +1205,25 @@ static void llama_model_quantize_impl(const std::string & fname_inp, const std::
         if (!ctx_outs[i_split]) {
             ctx_outs[i_split].reset(gguf_init_empty());
         }
-        gguf_add_tensor(ctx_outs[i_split].get(), tensor);
-
         metadata[i].allows_quantization = tensor_allows_quantization(params, model->arch, tensor);
 
         if (metadata[i].allows_quantization) {
             metadata[i].target_type = llama_tensor_get_type(qs, params, tensor, default_type, metadata[i]);
         } else {
             metadata[i].target_type = tensor->type;
+        }
+
+        metadata[i].n_pad = GGML_PAD(tensor->ne[0], ggml_blck_size(metadata[i].target_type)) - tensor->ne[0];
+        if (metadata[i].n_pad > 0) {
+            ggml_tensor padded = *tensor;
+            padded.ne[0] += metadata[i].n_pad;
+            padded.nb[1] = ggml_row_size(padded.type, padded.ne[0]);
+            for (int d = 2; d < GGML_MAX_DIMS; ++d) {
+                padded.nb[d] = padded.nb[d - 1]*padded.ne[d - 1];
+            }
+            gguf_add_tensor(ctx_outs[i_split].get(), &padded);
+        } else {
+            gguf_add_tensor(ctx_outs[i_split].get(), tensor);
         }
 
         metadata[i].requires_imatrix = tensor_requires_imatrix(tensor->name, metadata[i].target_type, ftype);
@@ -1247,6 +1263,7 @@ static void llama_model_quantize_impl(const std::string & fname_inp, const std::
     std::vector<no_init<uint8_t>> read_data;
     std::vector<no_init<uint8_t>> work;
     std::vector<no_init<float>> f32_conv_buf;
+    std::vector<no_init<float>> f32_pad_buf;
 
     const size_t max_buf_size = params->max_buf_size ? params->max_buf_size : LLAMA_QUANT_MAX_BUF_SIZE;
 
@@ -1326,7 +1343,7 @@ static void llama_model_quantize_impl(const std::string & fname_inp, const std::
         if (params->dry_run) {
             // the --dry-run option calculates the final quantization size without quantizing
             if (quantize) {
-                new_size = ggml_nrows(tensor) * ggml_row_size(new_type, tensor->ne[0]);
+                new_size = ggml_nrows(tensor) * ggml_row_size(new_type, tensor->ne[0] + tm.n_pad);
                 LLAMA_LOG_INFO("size = %8.2f MiB -> %8.2f MiB (%s)\n",
                                tensor_size/1024.0/1024.0,
                                new_size/1024.0/1024.0,
@@ -1394,15 +1411,26 @@ static void llama_model_quantize_impl(const std::string & fname_inp, const std::
                 LLAMA_LOG_INFO("converting to %s .. ", ggml_type_name(new_type));
                 fflush(stdout);
 
-                const int64_t n_per_row = tensor->ne[0];
+                const int64_t n_src_row = tensor->ne[0];
+                const int64_t n_per_row = n_src_row + tm.n_pad;
                 const int64_t nrows_per_expert = tensor->ne[1];
                 const int64_t nrows_total = ggml_nrows(tensor);
 
-                const size_t row_size_src = ggml_row_size(tensor->type, n_per_row);
+                const size_t row_size_src = ggml_row_size(tensor->type, n_src_row);
                 const size_t row_size_dst = ggml_row_size(new_type,     n_per_row);
 
+                std::vector<float> imatrix_padded;
+                if (imatrix && tm.n_pad > 0) {
+                    const int64_t n_mat = tensor->ne[2]*tensor->ne[3];
+                    imatrix_padded.assign(n_mat*n_per_row, 1.0f);
+                    for (int64_t e = 0; e < n_mat; ++e) {
+                        std::copy(imatrix + e*n_src_row, imatrix + (e + 1)*n_src_row, imatrix_padded.data() + e*n_per_row);
+                    }
+                    imatrix = imatrix_padded.data();
+                }
+
                 // process the rows in slabs, so that the buffers stay below max_buf_size
-                const size_t bytes_per_row = row_size_src + row_size_dst + (tensor->type == GGML_TYPE_F32 ? 0 : n_per_row*sizeof(float));
+                const size_t bytes_per_row = row_size_src + row_size_dst + (tensor->type == GGML_TYPE_F32 && tm.n_pad == 0 ? 0 : 2*n_per_row*sizeof(float));
                 const int64_t nrows_slab = std::max<int64_t>(1, std::min<int64_t>(nrows_total, max_buf_size/bytes_per_row));
 
                 static const int64_t min_chunk_size = 32 * 512;
@@ -1423,8 +1451,20 @@ static void llama_model_quantize_impl(const std::string & fname_inp, const std::
                         if (f32_conv_buf.size() < (size_t) nelements_cur) {
                             f32_conv_buf.resize(nelements_cur);
                         }
-                        llama_tensor_dequantize_impl(tensor->type, src, (float *) f32_conv_buf.data(), workers, nelements_cur, nthread);
+                        llama_tensor_dequantize_impl(tensor->type, src, (float *) f32_conv_buf.data(), workers, nrows_cur*n_src_row, nthread);
                         f32_data = (const float *) f32_conv_buf.data();
+                    }
+
+                    if (tm.n_pad > 0) {
+                        if (f32_pad_buf.size() < (size_t) nelements_cur) {
+                            f32_pad_buf.resize(nelements_cur);
+                        }
+                        float * dst = (float *) f32_pad_buf.data();
+                        for (int64_t r = 0; r < nrows_cur; ++r) {
+                            std::copy(f32_data + r*n_src_row, f32_data + (r + 1)*n_src_row, dst + r*n_per_row);
+                            std::fill(dst + r*n_per_row + n_src_row, dst + (r + 1)*n_per_row, 0.0f);
+                        }
+                        f32_data = dst;
                     }
 
                     if (work.size() < nrows_cur*row_size_dst) {
@@ -1492,6 +1532,7 @@ llama_model_quantize_params llama_model_quantize_default_params() {
         /*.pure                        =*/ false,
         /*.keep_split                  =*/ false,
         /*.dry_run                     =*/ false,
+        /*.pad_exps                    =*/ false,
         /*.imatrix                     =*/ nullptr,
         /*.kv_overrides                =*/ nullptr,
         /*.tensor_type                 =*/ nullptr,
