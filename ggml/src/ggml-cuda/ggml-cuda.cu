@@ -3979,7 +3979,9 @@ static bool ggml_cuda_topk_moe_fusion(const struct ggml_cgraph * cgraph, int nod
 
         args.norm = true;
         for (const ggml_op op : norm_ops) {
-            if (nodes[node_idx]->op == op && nodes[node_idx]->src[0] == nodes[node_idx - 1]) {
+            const ggml_tensor * node = node_idx < n_nodes ? nodes[node_idx] : nullptr;
+            const bool sum_eps = op == GGML_OP_CLAMP && node && node->op == GGML_OP_SCALE && ggml_get_op_params_f32(node, 0) == 1.0f;
+            if (node && (node->op == op || sum_eps) && node->src[0] == nodes[node_idx - 1]) {
                 node_idx++;
             } else {
                 args.norm = false;
@@ -4653,8 +4655,9 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph 
                 ids = cgraph->nodes[out_nodes[0]];
 
                 if (args.norm) {
+                    const ggml_op sum_op = cgraph->nodes[i + ops.size() + 2]->op;
                     ops.insert(ops.end(),
-                               { GGML_OP_RESHAPE, GGML_OP_SUM_ROWS, GGML_OP_CLAMP, GGML_OP_DIV, GGML_OP_RESHAPE });
+                               { GGML_OP_RESHAPE, GGML_OP_SUM_ROWS, sum_op, GGML_OP_DIV, GGML_OP_RESHAPE });
                     clamp = cgraph->nodes[i + ops.size() - 3];
                 }
                 if (args.scale) {
