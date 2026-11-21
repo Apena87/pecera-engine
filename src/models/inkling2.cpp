@@ -307,7 +307,8 @@ ggml_tensor * llama_model_inkling2::graph::build_layer(int il, int ip, ggml_tens
     if (layer.attn_res_query) {
         ggml_tensor * mixed = mix(blocks, cur, layer.attn_res_query);
         for (int j = 0; j < 3; ++j) {
-            inputs[j] = ggml_cont(ctx0, ggml_view_2d(ctx0, mixed, n_embd, n_tokens, mixed->nb[2], (is_swa ? 0 : j)*mixed->nb[1]));
+            inputs[j] = is_swa ? ggml_reshape_2d(ctx0, mixed, n_embd, n_tokens)
+                               : ggml_cont(ctx0, ggml_view_2d(ctx0, mixed, n_embd, n_tokens, mixed->nb[2], j*mixed->nb[1]));
         }
     }
 
@@ -361,11 +362,19 @@ ggml_tensor * llama_model_inkling2::graph::build_layer(int il, int ip, ggml_tens
 
         // project r on the bias table, the attention gathers it by distance
         // the sink logit t is per query: exp(s - t)/(1 + sum(exp(s - t))) = exp(s)/(exp(t) + sum(exp(s))), with a zero sink
-        ggml_tensor * table = ggml_mul_mat(ctx0, ggml_scale(ctx0, ggml_pad(ctx0, layer.attn_rel_bias, 0, 1, 0, 0), hparams.f_relative_clip), Rcur);
+        auto rel_bias = rel_biases.find(layer.attn_rel_bias);
+        if (rel_bias == rel_biases.end()) {
+            rel_bias = rel_biases.emplace(layer.attn_rel_bias, ggml_scale(ctx0, ggml_pad(ctx0, layer.attn_rel_bias, 0, 1, 0, 0), hparams.f_relative_clip)).first;
+        }
+        ggml_tensor * table = ggml_mul_mat(ctx0, rel_bias->second, Rcur);
         table = ggml_sub(ctx0, table, ggml_reshape_3d(ctx0, sinks, 1, n_head, n_tokens));
         cb(table, "rel_table", il);
 
-        sinks = ggml_fill(ctx0, ggml_new_tensor_1d(ctx0, GGML_TYPE_F32, n_head), 0.0f);
+        auto zero = zero_sinks.find(n_head);
+        if (zero == zero_sinks.end()) {
+            zero = zero_sinks.emplace(n_head, ggml_fill(ctx0, ggml_new_tensor_1d(ctx0, GGML_TYPE_F32, n_head), 0.0f)).first;
+        }
+        sinks = zero->second;
 
         cur = build_attn(inp,
                 nullptr, nullptr, nullptr,
