@@ -2518,7 +2518,7 @@ struct llama_model_inkling2 : public llama_model_base {
                 ggml_tensor * history,
                 llm_graph_input_rs * inp,
                 int64_t offset);
-        ggml_tensor * control(ggml_tensor * cur, ggml_tensor * message, const loop_layer & loop, int ctrl);
+        ggml_tensor * control(ggml_tensor * cur, ggml_tensor * messages, ggml_tensor * messages_normed, const loop_layer & loop, int ctrl);
 
     protected:
         // the helpers alone, a derived graph builds its own body
@@ -2540,6 +2540,7 @@ struct llama_model_inkling2 : public llama_model_base {
         ggml_tensor * tau         = nullptr; // log-scaled positions
 
         std::map<std::vector<ggml_tensor *>, std::pair<ggml_tensor *, ggml_tensor *>> stacks;
+        std::map<ggml_tensor *, ggml_tensor *> normed;
     };
 
     std::unique_ptr<llm_graph_context> build_arch_graph(const llm_graph_params & params) const override;
