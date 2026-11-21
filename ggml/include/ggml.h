@@ -415,6 +415,7 @@ extern "C" {
         GGML_OP_DSV4_HC_PRE,
         GGML_OP_DSV4_HC_POST,
         GGML_OP_TOP_K_MASK,
+        GGML_OP_DEPTH_MIX,
 
         GGML_OP_UNARY,
 
@@ -2529,6 +2530,23 @@ extern "C" {
             struct ggml_tensor  * score,
             struct ggml_tensor  * blocks,
             struct ggml_tensor  * extra);
+
+    // depth mix (Inkling 2 block attention residuals): softmax attention of the queries over the states of a token
+    // stack: [n_embd, n_stack, n_tokens] f32, can be NULL: states used as given
+    // x:     [n_embd, n_tokens]          f32: the last state, RMS-normalized with eps
+    // query: [n_embd, n_query]           f32
+    // res:   [n_embd, n_query, n_tokens] f32
+    //
+    // s = [stack[:, :, t], rms_norm(x[:, t])], a = softmax_j(scale*dot(s[:, j], query[:, q]))
+    // res[:, q, t] = sum_j a[j]*s[:, j]
+    //
+    GGML_API struct ggml_tensor * ggml_depth_mix(
+            struct ggml_context * ctx,
+            struct ggml_tensor  * stack,
+            struct ggml_tensor  * x,
+            struct ggml_tensor  * query,
+            float                 eps,
+            float                 scale);
 
     // custom operators
 

@@ -2539,7 +2539,7 @@ struct llama_model_inkling2 : public llama_model_base {
         ggml_tensor * inp_out_ids = nullptr;
         ggml_tensor * tau         = nullptr; // log-scaled positions
 
-        std::map<std::vector<ggml_tensor *>, std::pair<ggml_tensor *, ggml_tensor *>> stacks;
+        std::map<std::vector<ggml_tensor *>, ggml_tensor *> stacks;
         std::map<ggml_tensor *, ggml_tensor *> normed;
         std::map<ggml_tensor *, ggml_tensor *> rel_biases;
         std::map<int64_t, ggml_tensor *> zero_sinks;

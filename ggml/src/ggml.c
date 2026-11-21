@@ -1099,6 +1099,7 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "DSV4_HC_PRE",
     "DSV4_HC_POST",
     "TOP_K_MASK",
+    "DEPTH_MIX",
 
     "UNARY",
 
@@ -1118,7 +1119,7 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "SLEEP",
 };
 
-static_assert(GGML_OP_COUNT == 100, "GGML_OP_COUNT != 100");
+static_assert(GGML_OP_COUNT == 101, "GGML_OP_COUNT != 101");
 
 static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "none",
@@ -1214,6 +1215,7 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "dsv4_hc_pre(x, weights)",
     "dsv4_hc_post(x, residual, post, comb)",
     "top_k_mask(mask, top_k, score, blocks, extra)",
+    "depth_mix(stack, x, query)",
 
     "unary(x)",
 
@@ -1233,7 +1235,7 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "sleep(x)",
 };
 
-static_assert(GGML_OP_COUNT == 100, "GGML_OP_COUNT != 100");
+static_assert(GGML_OP_COUNT == 101, "GGML_OP_COUNT != 101");
 
 static_assert(GGML_OP_POOL_COUNT == 2, "GGML_OP_POOL_COUNT != 2");
 
@@ -6634,6 +6636,37 @@ struct ggml_tensor * ggml_top_k_mask(
     result->src[2] = score;
     result->src[3] = blocks;
     result->src[4] = extra;
+
+    return result;
+}
+
+// ggml_depth_mix
+
+struct ggml_tensor * ggml_depth_mix(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * stack,
+        struct ggml_tensor  * x,
+        struct ggml_tensor  * query,
+        float                 eps,
+        float                 scale) {
+    GGML_ASSERT(x->type == GGML_TYPE_F32 && query->type == GGML_TYPE_F32);
+    GGML_ASSERT(ggml_is_contiguous_rows(x) && ggml_is_contiguous_rows(query));
+    GGML_ASSERT(x->ne[2] == 1 && x->ne[3] == 1 && query->ne[2] == 1 && query->ne[3] == 1);
+    GGML_ASSERT(query->ne[0] == x->ne[0]);
+    if (stack) {
+        GGML_ASSERT(stack->type == GGML_TYPE_F32 && ggml_is_contiguous_rows(stack));
+        GGML_ASSERT(stack->ne[0] == x->ne[0] && stack->ne[2] == x->ne[1] && stack->ne[3] == 1);
+    }
+
+    struct ggml_tensor * result = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, x->ne[0], query->ne[1], x->ne[1]);
+
+    ggml_set_op_params_f32(result, 0, eps);
+    ggml_set_op_params_f32(result, 1, scale);
+
+    result->op     = GGML_OP_DEPTH_MIX;
+    result->src[0] = x;
+    result->src[1] = query;
+    result->src[2] = stack;
 
     return result;
 }

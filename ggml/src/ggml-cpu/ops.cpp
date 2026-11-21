@@ -12541,3 +12541,73 @@ void ggml_compute_forward_lightning_indexer(
         }
     }
 }
+
+// ggml_compute_forward_depth_mix
+
+void ggml_compute_forward_depth_mix(
+        const ggml_compute_params * params,
+        ggml_tensor * dst) {
+    const ggml_tensor * x     = dst->src[0];
+    const ggml_tensor * query = dst->src[1];
+    const ggml_tensor * stack = dst->src[2];
+
+    const float eps   = ggml_get_op_params_f32(dst, 0);
+    const float scale = ggml_get_op_params_f32(dst, 1);
+
+    const int64_t n_embd   = x->ne[0];
+    const int64_t n_tokens = x->ne[1];
+    const int64_t n_query  = query->ne[1];
+    const int64_t n_stack  = stack ? stack->ne[1] : 0;
+
+    std::vector<float> normed(n_embd);
+    std::vector<float> weights(n_stack + 1);
+
+    for (int64_t t = params->ith; t < n_tokens; t += params->nth) {
+        const float * xt = (const float *) ((const char *) x->data + t*x->nb[1]);
+
+        double sum = 0.0;
+        for (int64_t i = 0; i < n_embd; ++i) {
+            sum += (double) xt[i]*xt[i];
+        }
+        const float rms = 1.0f/sqrtf((float) (sum/n_embd) + eps);
+        for (int64_t i = 0; i < n_embd; ++i) {
+            normed[i] = xt[i]*rms;
+        }
+
+        auto state = [&](int64_t j) {
+            return j < n_stack ? (const float *) ((const char *) stack->data + t*stack->nb[2] + j*stack->nb[1]) : normed.data();
+        };
+
+        for (int64_t q = 0; q < n_query; ++q) {
+            const float * qv = (const float *) ((const char *) query->data + q*query->nb[1]);
+
+            float max = -INFINITY;
+            for (int64_t j = 0; j <= n_stack; ++j) {
+                const float * s = state(j);
+                float dot = 0.0f;
+                for (int64_t i = 0; i < n_embd; ++i) {
+                    dot += s[i]*qv[i];
+                }
+                weights[j] = scale*dot;
+                max = std::max(max, weights[j]);
+            }
+            float total = 0.0f;
+            for (int64_t j = 0; j <= n_stack; ++j) {
+                weights[j] = expf(weights[j] - max);
+                total += weights[j];
+            }
+
+            float * out = (float *) ((char *) dst->data + t*dst->nb[2] + q*dst->nb[1]);
+            for (int64_t i = 0; i < n_embd; ++i) {
+                out[i] = 0.0f;
+            }
+            for (int64_t j = 0; j <= n_stack; ++j) {
+                const float * s = state(j);
+                const float   w = weights[j]/total;
+                for (int64_t i = 0; i < n_embd; ++i) {
+                    out[i] += w*s[i];
+                }
+            }
+        }
+    }
+}

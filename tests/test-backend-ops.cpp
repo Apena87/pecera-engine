@@ -4931,6 +4931,37 @@ struct test_ssm_conv_bias_silu : public test_case {
 };
 
 // GGML_OP_SSM_SCAN
+// GGML_OP_DEPTH_MIX
+struct test_depth_mix : public test_case {
+    const int64_t n_embd;
+    const int64_t n_stack;
+    const int64_t n_query;
+    const int64_t n_tokens;
+
+    std::string vars() override {
+        return VARS_TO_STR4(n_embd, n_stack, n_query, n_tokens);
+    }
+
+    test_depth_mix(int64_t n_embd = 2304, int64_t n_stack = 3, int64_t n_query = 1, int64_t n_tokens = 7)
+        : n_embd(n_embd), n_stack(n_stack), n_query(n_query), n_tokens(n_tokens) {}
+
+    ggml_tensor * build_graph(ggml_context * ctx) override {
+        ggml_tensor * stack = n_stack ? ggml_new_tensor_3d(ctx, GGML_TYPE_F32, n_embd, n_stack, n_tokens) : nullptr;
+        ggml_tensor * x     = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, n_embd, n_tokens);
+        ggml_tensor * query = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, n_embd, n_query);
+
+        ggml_tensor * out = ggml_depth_mix(ctx, stack, x, query, 1e-6f, 1.0f/sqrtf((float) n_embd));
+        ggml_set_name(out, "out");
+        return out;
+    }
+
+    void initialize_tensors(ggml_context * ctx) override {
+        for (ggml_tensor * t = ggml_get_first_tensor(ctx); t != nullptr; t = ggml_get_next_tensor(ctx, t)) {
+            init_tensor_uniform(t, -3.0f, 3.0f);
+        }
+    }
+};
+
 // GGML_OP_SSM_CONV + GGML_OP_ADD (residual) + GGML_OP_SCALE (fused operation)
 struct test_ssm_conv_residual_scale : public test_case {
     const ggml_type type;
@@ -11997,6 +12028,14 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
                     GGML_TYPE_F32, {d_conv - 1 + 64, d_inner, 1, 1}, {d_conv, d_inner, 1, 1}, fuse_bias));
                 test_cases.emplace_back(new test_ssm_conv_bias_silu(
                     GGML_TYPE_F32, {d_conv - 1 + 64, d_inner, 4, 1}, {d_conv, d_inner, 1, 1}, fuse_bias));
+            }
+        }
+    }
+
+    for (int64_t n_stack : {0, 1, 5, 12}) {
+        for (int64_t n_query : {1, 3, 4}) {
+            for (int64_t n_tokens : {1, 33}) {
+                test_cases.emplace_back(new test_depth_mix(2304, n_stack, n_query, n_tokens));
             }
         }
     }
