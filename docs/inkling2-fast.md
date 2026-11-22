@@ -2,6 +2,8 @@
 
 This branch (`inkling-fast`) makes [Inkling 2 Mini](https://huggingface.co/thinkingmachines/Inkling-2-Mini) fast on a single 12 GB card. On an RTX 4070 Ti with 64K context, it decodes at 51-64 tok/s and processes prompts at about 1500 tok/s. Upstream llama.cpp with the IQ4_NL GGUF and part of the experts on the CPU gives 29-34 tok/s decode and 88 tok/s prompt processing at the same context.
 
+The ready-made GGUF is at [hridya423/Inkling-2-Mini-12GB-GGUF](https://huggingface.co/hridya423/Inkling-2-Mini-12GB-GGUF). The short setup guide is at [hridaya423/inkling-2-mini-12gb](https://github.com/hridaya423/inkling-2-mini-12gb).
+
 The speedup has two parts. A new quant puts every expert that the GPU runs at 2-3 bits, so the model fits in VRAM. Graph changes then cut the CUDA kernels per token from about 5000 to about 3500.
 
 ## Results
