@@ -1,5 +1,7 @@
 # llama.cpp
 
+> **Fork note:** the `inkling-fast` branch runs Inkling 2 Mini at 51-64 tok/s on a 12 GB GPU. See [docs/inkling2-fast.md](docs/inkling2-fast.md).
+
 ![llama.cpp](https://raw.githubusercontent.com/ggml-org/llama-brand/refs/heads/master/logo/svg/cover/llama-cpp/cover-llama-cpp-dark.svg)
 
 <div align="center">
