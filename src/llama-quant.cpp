@@ -1727,7 +1727,7 @@ static std::unordered_map<std::string, ggml_type> target_bpw_type(
         constexpr int64_t target_rank = 25;
         constexpr int64_t k = 20;   // 20th singular value for condition number estimation
         constexpr float eps_norm = 1e-8f;
-        constexpr float eps_eig = EPSILON;
+        constexpr float eps_eig = 1e-12f; // pecera: literal instead of the captured EPSILON, MSVC rejects that in a constant expression
         constexpr int jacobi_sweeps = 20;
         if (total_rows_sampled < 1 || n_per_row < 1) { return LQ_INFINITE; }
 
