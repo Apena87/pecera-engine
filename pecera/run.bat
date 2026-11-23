@@ -10,8 +10,8 @@ REM measured on this PC at 64k context, q4_0 KV (pecera\RESULTS.md):
 REM  - blocks 22-23 on the CPU: 78 t/s short context, 70 t/s at 6.4k depth, about 9.6 GB VRAM
 REM  - all experts on the GPU:  87 t/s short context, 78 t/s at 6.4k depth, about 10.9 GB VRAM
 REM  - the old build in the same minute: 68 and 62 t/s
-REM PLACE=auto puts every expert on the GPU when at least 11250 MiB of VRAM is free.
-REM Not checked on this build yet: vision input, contexts above 64k.
+REM PLACE=auto puts every expert on the GPU when enough VRAM is free (11250 MiB, or 11650 with vision).
+REM Vision checked 2026-11-23: test image read correctly in 2.5 s. Not checked yet: contexts above 64k.
 REM ============================================================
 
 set "PORT_ARG=%1"
@@ -37,9 +37,12 @@ if "%VISION%"=="1" if exist "%MMPROJ%" set VIS=--mmproj "%MMPROJ%" --no-mmproj-o
 
 set "FREE=0"
 for /f %%A in ('nvidia-smi "--query-gpu=memory.free" "--format=csv,noheader,nounits"') do set "FREE=%%A"
+REM all experts on the GPU: the server held 10.6 GB without vision and 11.2 GB with it (measured 2026-11-23)
+set "NEED=11250"
+if defined VIS set "NEED=11650"
 if /i "%PLACE%"=="auto" (
   set "PLACE=cpu2"
-  if %FREE% GEQ 11250 set "PLACE=gpu"
+  if %FREE% GEQ %NEED% set "PLACE=gpu"
 )
 set OT=-ot "blk\.(22|23)\.ffn_.*_exps=CPU"
 if /i "%PLACE%"=="gpu" set "OT="
