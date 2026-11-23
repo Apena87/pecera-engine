@@ -32,7 +32,16 @@ Measured with 12 expert layers on the CPU, so the 36 loop-core visits are the on
 
 - Greedy completion text is identical before and after the top-k fusion.
 - GSM8K, 40 questions, same seed as the earlier comparisons: 40 of 40 on the build before the attention-bias change (12 expert layers on CPU). The old build scored 39 of 40.
-- GSM8K 40 and MMLU-Pro 70 on the final build in the standard placement: see the entry below when the run finishes.
+- Final build, standard placement, 64k, same seed and questions as the earlier comparisons:
+
+| Test | Old build | pecera | Run time, old | Run time, pecera |
+|---|---|---|---|---|
+| GSM8K, 40 questions | 39 | 40 | 394 s | 395 s (longer answers, 72 t/s against 63) |
+| MMLU-Pro, 70 questions | 55 | 56 | 2,097 s | 1,703 s (70 t/s) |
+
+  A one-question difference on either test is inside run-to-run variation at temperature 1.0. The result is that scores held.
+- `pecera\run.bat` test launch on port 9314: server up in 9 s, picked all experts on the GPU, text request answered at 75 t/s, and the test image (text plus a red circle) was read correctly in 2.5 s.
+- With the vision projector loaded the server held 11.2 GB of VRAM against 10.6 GB without it. On the old build the projector cost no VRAM. The launcher threshold for the all-GPU mode is higher when vision is on. Cause not found yet.
 
 ### What did not work on the first try
 
