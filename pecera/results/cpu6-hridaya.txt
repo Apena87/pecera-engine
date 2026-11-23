@@ -1,0 +1,4 @@
+tag=cpu6-hridaya exe=C:\Llama\inkling-fast\build\bin\llama-server.exe ctx=16384 kv=q4_0 ot=blk\.(18|19|20|21|22|23)\.ffn_.*_exps=CPU extra= gpu_before=1466 MiB 2026-11-23T18:16:42
+up=True load_s=5 gpu_loaded=9971 MiB
+greedy run 1 n=200 eval=55.7 t/s
+greedy run 2 n=200 eval=56.0 t/s

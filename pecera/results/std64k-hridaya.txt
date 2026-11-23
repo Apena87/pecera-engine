@@ -1,0 +1,10 @@
+tag=std64k-hridaya exe=C:\Llama\inkling-fast\build\bin\llama-server.exe ctx=65536 kv=q4_0 ot=blk\.(22|23)\.ffn_.*_exps=CPU extra= gpu_before=1180 MiB 2026-11-23T18:32:38
+up=True load_s=5 gpu_loaded=11512 MiB
+greedy run 1 n=200 eval=67.2 t/s
+greedy run 2 n=200 eval=67.4 t/s
+greedy run 3 n=200 eval=68.2 t/s
+greedy_text: energy cannot be created or destroyed. Second, energy is always lost as heat. Third, the entropy of a system at absolute zero is zero. The first law is a statement of the conservation of energy. The second law is a statement of the fact that energy is always lost as heat. The third law is a statement of the fact that the entropy of a system at absolute zero is zero. The first law of thermodynamics is a statement of the conservation of energy. The second law of thermodynamics is a statement of the fact that energy is always lost as heat. The third law of thermodynamics is a statement of the fact that the entropy of a system at absolute zero is zero. The first law of thermodynamics is a statement of the conservation of energy. The second law of thermodynamics is a statement of the fact that energy is always lost as heat. The third law of thermodynamics is a statement of the fact that the entropy of a system at absolute zero is zero.
+chat run 1 prompt_n=6432 prefill=1848 t/s eval=61.9 t/s
+chat run 2 prompt_n=512 prefill=1430 t/s eval=62.2 t/s
+gpu_after=11598 MiB ram_free_gb=5.1
+DONE
