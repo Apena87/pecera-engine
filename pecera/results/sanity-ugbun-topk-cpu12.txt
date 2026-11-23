@@ -1,0 +1,10 @@
+tag=sanity-ugbun-topk-cpu12 exe=C:\Llama\pecera-engine\build-ugbun\bin\llama-server.exe ctx=8192 kv=q4_0 ot=blk\.(0|1|2|3|4|5|18|19|20|21|22|23)\.ffn_.*_exps=CPU extra= gpu_before=4033 MiB 2026-11-23T18:05:21
+up=True load_s=5 gpu_loaded=10985 MiB
+greedy run 1 n=200 eval=52.5 t/s
+greedy run 2 n=200 eval=53.7 t/s
+greedy run 3 n=200 eval=54.1 t/s
+greedy_text: energy cannot be created or destroyed. Second, energy is always lost as heat. Third, the entropy of a system approaches a maximum as it approaches equilibrium. The first law is a statement of the conservation of energy. The second law is a statement of the direction of energy flow. The third law is a statement of the state of a system at equilibrium. The first law of thermodynamics is a statement of the conservation of energy. It states that energy cannot be created or destroyed. This means that the total amount of energy in a system is constant. The second law of thermodynamics is a statement of the direction of energy flow. It states that energy is always lost as heat. This means that the total amount of energy in a system is always decreasing. The third law of thermodynamics is a statement of the state of a system at equilibrium. It states that the entropy of a system approaches a maximum as it approaches equilibrium. This means that the total amount of energy in a system
+chat run 1 prompt_n=6432 prefill=913 t/s eval=50.2 t/s
+chat run 2 prompt_n=512 prefill=802 t/s eval=50.2 t/s
+gpu_after=11099 MiB ram_free_gb=4.6
+DONE

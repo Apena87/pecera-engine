@@ -1,0 +1,10 @@
+tag=allgpu64k-pecera exe=C:\Llama\pecera-engine\build-ugbun\bin\llama-server.exe ctx=65536 kv=q4_0 ot= extra= gpu_before=1109 MiB 2026-11-23T18:34:13
+up=True load_s=7 gpu_loaded=11748 MiB
+greedy run 1 n=200 eval=86.4 t/s
+greedy run 2 n=200 eval=87.0 t/s
+greedy run 3 n=200 eval=87.0 t/s
+greedy_text: energy cannot be created or destroyed. Second, energy is always lost as heat. Third, the entropy of a system approaches a maximum as it approaches equilibrium. The first law is a statement of the conservation of energy. The second law is a statement of the direction of energy flow. The third law is a statement of the ultimate state of a system. The first law of thermodynamics is a statement of the conservation of energy. It states that energy cannot be created or destroyed. This means that the total amount of energy in a system is constant. The second law of thermodynamics is a statement of the direction of energy flow. It states that energy is always lost as heat. This means that the total amount of energy in a system is always decreasing. The third law of thermodynamics is a statement of the ultimate state of a system. It states that the entropy of a system approaches a maximum as it approaches equilibrium. This means that the total amount of energy in a system is always
+chat run 1 prompt_n=6432 prefill=2064 t/s eval=77.9 t/s
+chat run 2 prompt_n=512 prefill=1548 t/s eval=77.8 t/s
+gpu_after=11974 MiB ram_free_gb=4.6
+DONE
