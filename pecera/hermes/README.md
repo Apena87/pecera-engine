@@ -15,7 +15,7 @@ Goal: get the highest Terminal-Bench 2.0 score this PC's model can reach when He
 
 ## How a task runs
 
-1. Harbor starts the task's container and installs Hermes in it.
+1. Harbor starts the task's container. The adapter links in the prebuilt Hermes from the Docker volume `pecera-hermes`, which takes about two seconds. Build that volume once with `..\tbench\build-hermes-volume.ps1` and then `..\tbench\hermes-runtime.ps1`.
 2. The adapter writes `SOUL.md`, the skills and a small config: toolsets `terminal, file, todo, skills, code_execution`, context compression at 60%, tool output capped at 20 KB, 300 s command timeout.
 3. It reads the task's own time limit from Harbor's task cache. The first session gets 72% of it as `run_budget_seconds`, so Hermes receives its wrap-up notice before the harness would cut it off.
 4. If at least 150 s remain afterwards, the audit session runs with the remaining time as its budget.
@@ -33,9 +33,13 @@ Options: `--ak audit=false` turns the audit session off, `--ak main_fraction=0.8
 
 The five skills are also installed in `%LOCALAPPDATA%\hermes\skills\terminal-ops`, and a short section at the end of `SOUL.md` points to them. The original SOUL.md is saved beside it as `SOUL.md.bak-pecera-20261123`.
 
+## Running it
+
+`C:\Llama\run-terminal-bench-tonight.bat` does everything: Docker, the model server with a 3,000-token thinking cap, a one-task check, then the full job. Running it again resumes. A dry run with no model: start `..\tbench\mock_llm.py`, then `..\tbench\run-tb-hermes.ps1 -Job dry -Extra "-i fix-git" -Port 9301`.
+
 ## Plan
 
-1. Baseline: Terminus 2 with mixC at daily settings (running since 2026-11-23 20:41).
+1. Baseline: Terminus 2 with mixC. The first attempt was stopped after 4 tasks (1 passed, 3 timed out at the 10,000-token thinking cap).
 2. Hermes with this harness, same model and server settings, full 89 tasks.
 3. Compare task by task. Where Hermes loses a task the baseline solved, read both logs and fix the general cause.
 4. Then test one change at a time on a fixed 20-task subset: audit on or off, thinking cap 4,000 against 10,000, sampling temperature, budget split.
