@@ -1,0 +1,4 @@
+tag=new-mixB-std model=Inkling-2-Mini-mixB.gguf ctx=65536 ot=blk\.(22|23)\.ffn_.*_exps=CPU extra= card_before=634 MiB
+up=True | after load: server dedicated=10331 MiB shared=154 MiB | card used=11006 MiB
+after a 6.4k request (prefill 1417 t/s, eval 75.7 t/s): server dedicated=10515 MiB shared=154 MiB | card used=11190 MiB
+DONE
