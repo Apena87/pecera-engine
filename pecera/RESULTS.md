@@ -64,7 +64,9 @@ A one-question difference on either test is inside run-to-run variation at tempe
 
 - Greedy completion text is identical before and after the top-k fusion.
 - `pecera\run.bat` test launches: server up in 9 s, text answered, and the test image (text plus a red circle) read correctly in 2.5 s.
-- Not rerun on this engine yet: HumanEval, the quiz, the long-context item, contexts above 64k.
+- Long-context item (40,331-token log, five questions) on this engine with mixC, four expert blocks on the CPU: 5 of 5, the same answers as mixB on the old build. The prompt was read at 1,156 t/s against 1,685 on the old build, and the answer was written at 58 t/s at that depth. Total 45 s against 33 s. The slower prefill is roadmap item 2.
+- Terminal-Bench 2.0 pipeline check: Harbor's oracle agent solved 2 of 2 sample tasks, and Terminus 2 with this engine and mixC solved `fix-git` in 2 minutes 10 seconds over 15 model calls. The full 89-task run started 2026-11-23 20:41. Results will be added here.
+- Not rerun on this engine yet: HumanEval, the quiz, contexts above 64k.
 
 ## What did not work on the first try
 
