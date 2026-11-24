@@ -53,3 +53,23 @@ Newest at the bottom. Each entry gives the choice and the reason.
 **Server settings for the run are the daily ones.** mixC, 64k context, reasoning effort high, thinking cap 10,000 tokens. Free VRAM at launch put four expert blocks on the CPU, so the run decodes at about 64 t/s.
 
 **Docker Desktop needs a workaround on this Windows build.** On build 26300, AF_UNIX socket files cannot be deleted by any program (`del` fails with "The file cannot be accessed by the system"). Docker Desktop crashes at startup when it finds its own leftover sockets. `tbench\start-docker.ps1` (also `C:\Llama\start-docker.bat`) renames the two folders that hold them before starting Docker. The set-aside folders are named `*.stale-<time>` under `%LOCALAPPDATA%\Docker` and `%LOCALAPPDATA%` and can be removed once Windows allows it.
+
+## 2026-11-23, late night: Hermes harness
+
+**Angel asked for the Hermes harness to be pushed as far as it will go on Terminal-Bench, with strict self-checks.** He stopped the first baseline run because he needed the PC, and asked that no model be loaded while he plays. Everything below was built and checked with Docker and a fake model endpoint (`tbench\mock_llm.py`).
+
+**The baseline run stopped at 4 of 89 tasks: 1 passed, 3 hit the time limit.** The server log shows why. Over 85 model calls, 95% of the time went to generation and 5% to reading prompts. Nine calls produced more than 3,000 tokens each and took 66% of all model time. The median call was 250 tokens. So long thinking bursts under the 10,000-token cap were using up 15-minute task limits.
+
+**Thinking cap of 3,000 tokens for benchmark runs.** That follows from the numbers above. `run.bat` now reads `PECERA_BUDGET`, `PECERA_EFFORT`, `PECERA_QUANT`, `PECERA_PLACE` and `PECERA_VISION` from the environment, and `tbench\tonight.ps1` sets the cap and turns vision off. Daily use keeps 10,000.
+
+**Hermes sends `reasoning_effort: medium` with every request unless its config says otherwise.** Seen in the dry run. Whether llama-server applies it over the launcher's `high` has not been tested with the real model.
+
+**Harness contents.** Five general skills, a task prompt with a five-step work order, a container SOUL.md, a per-task time budget read from the task's own limit (first session gets 72%), and an audit session with a fresh context that checks the first session's work and fixes only what fails. Toolsets are limited to terminal, file, todo, skills and code execution, which keeps the fixed prompt near 7,500 tokens. No task names, answers or test contents are in any of it.
+
+**Hermes is installed once, not per task.** Harbor's stock adapter installs Hermes in every container, which it documents as 6 to 10 minutes each, about 12 hours over 89 tasks. It also calls `hermes version`, which current Hermes no longer has. `tbench\build-hermes-volume.ps1` and `hermes-runtime.ps1` build one install into the Docker volume `pecera-hermes`. The adapter mounts it read-only and copies a prepared 481 MB data folder. Setup took 1 to 2 seconds in Debian 12, Ubuntu 20.04 and Debian 13 test containers. If the mount cannot be used in some image, the adapter falls back to the normal installer.
+
+**Dry run result.** One task (`fix-git`) through the whole chain with the fake endpoint: prebuilt install used, SOUL.md and all five skills present in the system prompt, task text and time limit in the user message, 12 tools offered, audit session started with the remaining time, Harbor's tests ran, results written.
+
+**`tbench\tonight.ps1` is the one-step launcher**, also as `C:\Llama\run-terminal-bench-tonight.bat`. It starts Docker and the server, runs one task as a check, then runs or resumes the full job. If the check fails for a harness reason it runs the Terminus 2 baseline instead and logs why.
+
+**Daily Hermes.** The five skills are installed, SOUL.md has a short section pointing to them, and the model name in `config.yaml` is now the alias `inkling-2-mini`, which the server reports from its next start. Backups: `SOUL.md.bak-pecera-20261123` and `config.yaml.bak-pecera-20261123`.
