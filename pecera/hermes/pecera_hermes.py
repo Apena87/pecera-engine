@@ -130,18 +130,46 @@ class PeceraHermes(Hermes):
             timeout_sec=15,
         )
 
+    # Hermes treats agent.run_budget_seconds as a soft limit: it sends a wrap-up notice and shortens API timeouts, but a
+    # session can still run past it. In the first full run, 8 of 45 tasks hit the task's own time limit that way and the
+    # audit session never started. So the chat command is also wrapped in coreutils "timeout", which ends the session
+    # from outside at _hard_cap_sec. Harbor's own exec timeout sits 90 s behind that as a second stop.
+    async def exec_as_agent(self, environment, command, env=None, cwd=None, timeout_sec=None):  # type: ignore[override]
+        cap = int(getattr(self, "_hard_cap_sec", 0) or 0)
+        if cap > 0 and timeout_sec is None and "hermes --yolo chat" in command:
+            wrapped = command.replace(
+                "hermes --yolo chat",
+                f'$(command -v timeout >/dev/null 2>&1 && echo "timeout -k 20 {cap}") hermes --yolo chat',
+                1,
+            )
+            began = time.monotonic()
+            try:
+                result = await super().exec_as_agent(environment, wrapped, env=env, cwd=cwd, timeout_sec=cap + 90)
+            except Exception as e:
+                self.logger.info(f"pecera: session stopped after {int(time.monotonic() - began)} s ({type(e).__name__})")
+                return None
+            took = int(time.monotonic() - began)
+            if took >= cap - 2:
+                self.logger.info(f"pecera: session reached the hard cap of {cap} s")
+            return result
+        return await super().exec_as_agent(environment, command, env=env, cwd=cwd, timeout_sec=timeout_sec)
+
     async def run(self, instruction, environment, context) -> None:  # type: ignore[override]
         total = _task_timeout_sec(self.logs_dir)
         start = time.monotonic()
         await self._write_soul(environment)
 
+        # First session: soft budget at main_fraction of the limit, hard stop 30 s later.
         self._budget_sec = max(240.0, total * self._main_fraction)
+        self._hard_cap_sec = min(self._budget_sec + 30.0, total * 0.9)
         main = _read("prompt_main.txt").replace(_MIN_MARK, str(int(total // 60))).replace(_TASK_MARK, instruction)
         await super().run(main, environment, context)
 
+        # Audit session: everything must be over by 96% of the limit, so Harbor's own timeout is never reached.
         elapsed = time.monotonic() - start
-        left = total * 0.93 - elapsed
-        if not self._audit or left < 150:
+        left_hard = total * 0.96 - elapsed
+        if not self._audit or left_hard < 150:
+            self.logger.info(f"pecera: no audit session ({int(left_hard)} s left)")
             return
         try:
             await self.exec_as_agent(
@@ -151,6 +179,7 @@ class PeceraHermes(Hermes):
             )
         except Exception:
             pass
-        self._budget_sec = left
-        audit = _read("prompt_audit.txt").replace(_MIN_MARK, str(max(2, int(left // 60)))).replace(_TASK_MARK, instruction)
+        self._budget_sec = left_hard - 30.0
+        self._hard_cap_sec = left_hard
+        audit = _read("prompt_audit.txt").replace(_MIN_MARK, str(max(2, int(self._budget_sec // 60)))).replace(_TASK_MARK, instruction)
         await super().run(audit, environment, context)
