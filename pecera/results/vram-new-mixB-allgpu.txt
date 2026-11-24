@@ -1,0 +1,4 @@
+tag=new-mixB-allgpu model=Inkling-2-Mini-mixB.gguf ctx=65536 ot= extra= card_before=657 MiB
+up=True | after load: server dedicated=11298 MiB shared=282 MiB | card used=11832 MiB
+after a 6.4k request (prefill 1398 t/s, eval 81.1 t/s): server dedicated=11480 MiB shared=282 MiB | card used=11909 MiB
+DONE
