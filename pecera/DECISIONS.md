@@ -39,3 +39,17 @@ Newest at the bottom. Each entry gives the choice and the reason.
 **The all-GPU placement is manual only.** It needs the desktop under about 600 MiB. `set PLACE=gpu` with `QUANT=mixB` still works for a locked or idle PC.
 
 **BF16 source, imatrix, Q8_0 reference and its logits are kept in `C:\Llama\inkling-fast\bf16`** (about 80 GB). They are needed for the dense-weight experiments in roadmap item 3 and for any further KLD comparison.
+
+## 2026-11-23, night
+
+**The daily launcher now starts this engine.** Angel approved the switch. `C:\Llama\inkling2-mini-fast.bat` is a two-line wrapper that calls `pecera\run.bat`. The previous launcher is kept as `C:\Llama\inkling2-mini-fast-oldbuild.bat`. Before switching, the 40k-token long-context item was rerun on the new engine with mixC and scored 5 of 5.
+
+**mixS deleted** on Angel's instruction. It can be rebuilt from the BF16 file in about five minutes with `quant\compare-quants.ps1`.
+
+**Terminal-Bench 2.0, not 4.1.** The current release is 4.1, and its documentation says some tasks need a sandbox with GPU access. This PC's GPU is occupied by the model. Version 2.0 has 89 tasks that run in local Docker containers, and it is the version most published local-model scores use.
+
+**Harness and agent.** Harbor, installed with `uv tool install harbor`, runs natively on Windows. The agent is Terminus 2, the benchmark's own reference agent. It runs on the host and drives each container, so it reaches llama-server on 127.0.0.1:9300 and the server does not have to listen on the network. Model name `hosted_vllm/inkling-2-mini` with `api_base` and a `model_info` block, because LiteLLM rejects unknown model names otherwise. One task at a time, one attempt per task, default timeouts. Scripts are in `pecera\tbench\`.
+
+**Server settings for the run are the daily ones.** mixC, 64k context, reasoning effort high, thinking cap 10,000 tokens. Free VRAM at launch put four expert blocks on the CPU, so the run decodes at about 64 t/s.
+
+**Docker Desktop needs a workaround on this Windows build.** On build 26300, AF_UNIX socket files cannot be deleted by any program (`del` fails with "The file cannot be accessed by the system"). Docker Desktop crashes at startup when it finds its own leftover sockets. `tbench\start-docker.ps1` (also `C:\Llama\start-docker.bat`) renames the two folders that hold them before starting Docker. The set-aside folders are named `*.stale-<time>` under `%LOCALAPPDATA%\Docker` and `%LOCALAPPDATA%` and can be removed once Windows allows it.

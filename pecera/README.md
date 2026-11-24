@@ -1,4 +1,4 @@
-# pecera-engine
+﻿# pecera-engine
 
 A llama.cpp fork tuned for one PC and one model.
 
@@ -47,4 +47,6 @@ See `RESULTS.md` for numbers, `ROADMAP.md` for what comes next and `DECISIONS.md
 
 `pecera\run.bat` starts the server on port 9300 with the same settings as the daily launcher. It puts every expert on the GPU when enough VRAM is free.
 
-The daily launcher `C:\Llama\inkling2-mini-fast.bat` still points at the old build. It moves to this engine once the remaining quality checks in `ROADMAP.md` pass.
+Since 2026-11-23 the daily launcher `C:\Llama\inkling2-mini-fast.bat` calls `pecera\run.bat`. The previous launcher is `C:\Llama\inkling2-mini-fast-oldbuild.bat`.
+
+`pecera\vram-probe.ps1` measures what a config really needs in VRAM, shared memory included. `pecera\quant\` holds the quant comparison scripts and `pecera\tbench\` the Terminal-Bench runner.
