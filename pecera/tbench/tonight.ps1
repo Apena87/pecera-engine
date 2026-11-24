@@ -63,3 +63,21 @@ if ($ok) {
 Say "Running. This window shows progress every 5 minutes. Closing it does not stop the run. To stop, close the model server window, then run: taskkill /im harbor.exe /f"
 while (-not $p.HasExited) { Start-Sleep 300; Say "$watch`: $(Progress $watch)" }
 Say "Finished. $watch`: $(Progress $watch)"
+
+# 5. Second attempt for tasks that ended with an exception (time limit reached, container did not start). They run as a
+#    separate job, <Job>-retry, so the first-attempt results stay untouched and the two scores can be reported apart.
+if ($watch -eq $Job) {
+  $trials = @(Get-ChildItem "$tb\jobs\$Job" -Directory)
+  $done = @($trials | Where-Object { Test-Path "$($_.FullName)\result.json" })
+  if ($done.Count -ge 89) {
+    $retry = "$Job-retry"; $names = @()
+    foreach ($t in $done) { try { $r = Get-Content "$($t.FullName)\result.json" -Raw | ConvertFrom-Json; if ($r.exception_info) { $names += ($t.Name -split '__')[0] } } catch {} }
+    if ($names.Count -eq 0) { Say 'No tasks ended with an exception, so there is nothing to retry.' }
+    else {
+      if (Test-Path "$tb\jobs\$retry") { Say "Resuming $retry."; $p = Start-Process harbor -ArgumentList 'jobs', 'resume', '-p', "$tb\jobs\$retry" -WindowStyle Hidden -PassThru -RedirectStandardOutput "$tb\$retry.resume.log" -RedirectStandardError "$tb\$retry.resume.err.log" }
+      else { Say "Retrying $($names.Count) tasks as $retry`: $($names -join ', ')"; $extra = ($names | ForEach-Object { "-i $_" }) -join ' '; $p = Start-Process powershell -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$repo\tbench\run-tb-hermes.ps1", '-Job', $retry, '-Extra', "`"$extra`"" -WindowStyle Hidden -PassThru }
+      while (-not $p.HasExited) { Start-Sleep 300; Say "$retry`: $((Progress $retry) -replace 'of 89', "of $($names.Count)")" }
+      Say "Finished. $retry`: $((Progress $retry) -replace 'of 89', "of $($names.Count)")"
+    }
+  } else { Say "$Job stopped with $($done.Count) of 89 finished. Run this again to resume." }
+}

@@ -73,3 +73,19 @@ Newest at the bottom. Each entry gives the choice and the reason.
 **`tbench\tonight.ps1` is the one-step launcher**, also as `C:\Llama\run-terminal-bench-tonight.bat`. It starts Docker and the server, runs one task as a check, then runs or resumes the full job. If the check fails for a harness reason it runs the Terminus 2 baseline instead and logs why.
 
 **Daily Hermes.** The five skills are installed, SOUL.md has a short section pointing to them, and the model name in `config.yaml` is now the alias `inkling-2-mini`, which the server reports from its next start. Backups: `SOUL.md.bak-pecera-20261123` and `config.yaml.bak-pecera-20261123`.
+
+## 2026-11-24: hard time cap for Hermes sessions, retry job for tasks that ended with an exception
+
+- Finding from tb2-hermes-run1 (first 45 tasks): 8 tasks reached the task's own time limit. Hermes treats
+  `agent.run_budget_seconds` as a soft limit (wrap-up notice, shorter API timeouts), so a session can run past it.
+  In 5 of the 8 the first session used the whole limit and the audit session never started.
+- Fix in `hermes/pecera_hermes.py`: the `hermes chat` command is wrapped in coreutils `timeout -k 20 <cap>`.
+  First session: soft budget at 72% of the limit, hard stop 30 s later. Audit session: must end by 96% of the limit.
+  Checked in an ubuntu:22.04 container that the wrapper stops the command and its child processes at the cap.
+  Not yet checked end to end with the model. The first trials after the next resume are that check.
+- The fix takes effect when the job is resumed, so tb2-hermes-run1 is mixed: tasks finished before the pause ran
+  without the hard cap, later ones with it. RESULTS.md has to say so.
+- `tbench/tonight.ps1` step 5: once all 89 tasks have a result, tasks whose result has an exception run again as a
+  separate job, `<Job>-retry`. First-attempt results stay untouched. Report the two scores apart.
+- `C:\Llama\tbench\pause-after-current.ps1` (not in the repo): waits for the running task to finish, then stops
+  Harbor and the model server and removes the leftover task container.
