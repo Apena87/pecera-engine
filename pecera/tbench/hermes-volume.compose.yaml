@@ -1,0 +1,4 @@
+# Declares the prebuilt Hermes volume so task containers can mount it (see run-tb-hermes.ps1).
+volumes:
+  pecera-hermes:
+    external: true

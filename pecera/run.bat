@@ -31,6 +31,13 @@ set "EFFORT=high"
 set "BUDGET=10000"
 set "VISION=1"
 
+REM Overrides from the environment, used by the benchmark launcher (tbench\tonight.ps1).
+if not "%PECERA_QUANT%"=="" set "QUANT=%PECERA_QUANT%"
+if not "%PECERA_PLACE%"=="" set "PLACE=%PECERA_PLACE%"
+if not "%PECERA_BUDGET%"=="" set "BUDGET=%PECERA_BUDGET%"
+if not "%PECERA_EFFORT%"=="" set "EFFORT=%PECERA_EFFORT%"
+if not "%PECERA_VISION%"=="" set "VISION=%PECERA_VISION%"
+
 set "ROOT=%~dp0.."
 set "MODELS=C:\Llama\inkling-fast\models"
 set "MODEL=%MODELS%\Inkling-2-Mini-%QUANT%.gguf"

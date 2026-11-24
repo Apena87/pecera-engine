@@ -80,6 +80,48 @@ class PeceraHermes(Hermes):
         cfg["approvals"] = {"mode": "off"}
         return yaml.dump(cfg, default_flow_style=False)
 
+    # A Hermes install built once into the docker volume "pecera-hermes" (tbench\build-hermes-volume.ps1 and
+    # hermes-runtime.ps1) and mounted read-only at the same path in every task container. /opt/pecera-hermes/home holds
+    # the program, /opt/pecera-hermes/tmp-hermes a prepared data root that is copied to /tmp/hermes. Setup then takes
+    # seconds. The stock install takes 6 to 10 minutes per container.
+    PREBUILT_ROOT = "/opt/pecera-hermes"
+
+    def get_version_command(self) -> str | None:  # type: ignore[override]
+        # Current Hermes has no "version" subcommand, only the --version flag.
+        return 'export PATH="$HOME/.local/bin:$PATH"; HERMES_HOME=/tmp/hermes hermes --version 2>/dev/null | head -1'
+
+    async def install(self, environment) -> None:  # type: ignore[override]
+        await self.ensure_system_dependencies(environment, ("curl", "git", "ripgrep", "xz"))
+        root = self.PREBUILT_ROOT
+        try:
+            result = await self.exec_as_agent(
+                environment,
+                command=(
+                    "set -e; "
+                    f"test -x {root}/home/.local/bin/hermes; test -d {root}/tmp-hermes; "
+                    'mkdir -p "$HOME/.local/bin"; '
+                    f'ln -sf {root}/home/.local/bin/hermes "$HOME/.local/bin/hermes"; '
+                    f"rm -rf /tmp/hermes; cp -a {root}/tmp-hermes /tmp/hermes; "
+                    'export PATH="$HOME/.local/bin:$PATH"; HERMES_HOME=/tmp/hermes hermes --version'
+                ),
+                timeout_sec=240,
+            )
+            if getattr(result, "return_code", 0) == 0:
+                self.logger.info("pecera: using the prebuilt Hermes install")
+                return
+        except Exception as e:  # mount missing, or this image cannot run the prebuilt binaries
+            self.logger.info(f"pecera: prebuilt Hermes not usable here ({type(e).__name__}), installing normally")
+        await self.exec_as_agent(
+            environment,
+            command=(
+                "set -euo pipefail; "
+                "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh"
+                " | bash -s -- --skip-setup && "
+                'export PATH="$HOME/.local/bin:$PATH" && export HERMES_HOME=/tmp/hermes && '
+                'mkdir -p "$HERMES_HOME/sessions" "$HERMES_HOME/skills" "$HERMES_HOME/memories" && '
+                "(hermes pm repair || true) && hermes --version"
+            ),
+        )
     async def _write_soul(self, environment) -> None:
         soul = _read("soul.md")
         await self.exec_as_agent(
