@@ -1,0 +1,10 @@
+tag=quant-speed-mixC exe=C:\Llama\pecera-engine\build-ugbun\bin\llama-server.exe ctx=65536 kv=q4_0 ot=blk\.(22|23)\.ffn_.*_exps=CPU extra= gpu_before=571 MiB 2026-11-23T19:44:14
+up=True load_s=9 gpu_loaded=11461 MiB
+greedy run 1 n=200 eval=77.9 t/s
+greedy run 2 n=200 eval=79.3 t/s
+greedy run 3 n=200 eval=78.9 t/s
+greedy_text: energy cannot be created or destroyed. Second, the entropy of a closed system can never decrease. Third, the entropy of a perfect crystal at absolute zero is zero. The first law is a statement of the conservation of energy. The second law is a statement of the direction of change in a system. The third law is a statement of the absolute zero of temperature. The first law of thermodynamics is a statement of the conservation of energy. It states that energy cannot be created or destroyed. This means that the total amount of energy in a system is constant. The second law of thermodynamics is a statement of the direction of change in a system. It states that the entropy of a closed system can never decrease. This means that the entropy of a system will always increase over time. The third law of thermodynamics is a statement of the absolute zero of temperature. It states that the entropy of a perfect crystal at absolute zero is zero. This means that the entropy of a system
+chat run 1 prompt_n=6432 prefill=1527 t/s eval=70.8 t/s
+chat run 2 prompt_n=512 prefill=1184 t/s eval=70.8 t/s
+gpu_after=11687 MiB ram_free_gb=13.6
+DONE
