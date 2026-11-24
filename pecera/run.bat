@@ -72,6 +72,7 @@ echo ============================================================
 
 "%RT%\llama-server.exe" ^
   -m "%MODEL%" %VIS% ^
+  --alias inkling-2-mini ^
   -ngl 99 ^
   %OT% ^
   -c %CTX% ^
