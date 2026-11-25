@@ -89,3 +89,5 @@ Newest at the bottom. Each entry gives the choice and the reason.
   separate job, `<Job>-retry`. First-attempt results stay untouched. Report the two scores apart.
 - `C:\Llama\tbench\pause-after-current.ps1` (not in the repo): waits for the running task to finish, then stops
   Harbor and the model server and removes the leftover task container.
+
+- 2026-11-24 23:30: qemu-alpine-ssh and qemu-startup failed before the agent started. Their Debian bullseye images list package versions the mirror no longer serves (404), so apt-get in the install step failed. The prebuilt Hermes does not need those packages, so that failure is now logged and setup continues. Both tasks are in the retry job.
