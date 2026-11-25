@@ -73,3 +73,64 @@ A one-question difference on either test is inside run-to-run variation at tempe
 - Upstream plus realugbun alone could not start at 64k. The dense relative-position bias needs a 6.5 GB compute buffer. Upstream's compact bias (#32740) has no CUDA path yet. capybaraonchain's commit that computes the bias inside flash attention fixed it.
 - Upstream master does not build with MSVC from VS 2026 because of one `constexpr` in `llama-quant.cpp`. Patched locally.
 - A single download connection to Hugging Face ran at 2 MB/s. `bf16\pdl.py` pulls the file over 8 ranged connections and checks the SHA-256.
+
+## Terminal-Bench 2.0, Hermes with the pecera harness (2026-11-23 to 2026-11-25)
+
+Setup: Inkling-2-Mini mixC, blocks 20-23 experts on CPU, 64k context, q4_0 KV cache, thinking capped at 3,000 tokens,
+vision off. Hermes Agent with the terminal-ops skills, the work protocol prompt and an audit session
+(`pecera/hermes/`). One attempt per task. Harbor, Docker Desktop on Windows.
+
+| | Passed | Score |
+|---|---|---|
+| Run 1 (`tb2-hermes-run1`), all 89 tasks | 43 | 48.3% |
+| Retry of the 17 tasks whose run 1 result ended with an exception | 5 | |
+| Combined (run 1, with run 1 exceptions replaced by the retry result) | 47 | 52.8% |
+
+Read the combined score with these limits:
+- Only tasks that ended with an exception were retried. Tasks that failed normally got one attempt. This favors the
+  combined number a little against a clean single-attempt score.
+- Tasks 1 to 46 (alphabetical, through make-mips-interpreter) ran before the hard time cap was added. Tasks 47 to 89 and
+  the retry ran with it.
+- large-scale-text-editing passed in run 1 despite a timeout and passed again in the retry. It counts once.
+- One attempt per task. At 89 tasks the score could be off by about 10 points either way.
+
+Retry results (17): passed cobol-modernization, crack-7z-hash, custom-memory-heap-crash, large-scale-text-editing,
+mteb-retrieve. Failed caffe-cifar-10, chess-best-move, circuit-fibsqrt, dna-assembly, feal-differential-cryptanalysis,
+feal-linear-cryptanalysis, gpt2-codegolf, make-doom-for-mips, make-mips-interpreter, mteb-leaderboard, qemu-alpine-ssh,
+qemu-startup. None of the 17 ended with an exception the second time.
+
+### Compared with other submissions
+
+Field pass rate per task from Simon Willison's analysis of 27 Terminal-Bench 2.0 submissions (123 trials per task,
+runs from 2025-11 to 2026-02; https://gist.github.com/simonw/3bff274abcbbbf8766e9437a542db248). The field averages
+59.4% over all 89 tasks. For scale, in that data Terminus 2 with GLM-5 scored 54.0%, Kimi-k2.5 43.9%, DeepSeek-V3.2
+39.8%, qwen3-coder-480b 27.5%, and the top entry (Droid, GPT-5.3-Codex) 77.3%. Those submissions mostly averaged five
+attempts per task, so the comparison is rough.
+
+| Field pass rate for the task | Tasks | Run 1 passed | Combined passed | Field average would pass |
+|---|---|---|---|---|
+| Under 25% | 19 | 0 | 1 | 2.5 |
+| 25 to 60% | 20 | 5 | 5 | 9.2 |
+| 60 to 80% | 22 | 14 | 14 | 15.8 |
+| 80% and up | 28 | 24 | 27 | 25.2 |
+
+The model matches or beats the field average on tasks most submissions solve and falls behind on the hard ones.
+Passes the field rarely gets: mteb-retrieve (11%), tune-mjcf (54%), financial-document-processor (56%), overfull-hbox
+(56%), sanitize-git-repo (57%), extract-elf (57%). The only task above 80% it failed after the retry:
+merge-diff-arc-agi-task (88%).
+
+Not yet separated: how much comes from the harness and how much from the model, and whether any of the score comes from
+the tasks being in training data. Planned checks are in ROADMAP.md: a Terminus 2 run at the same settings, an
+audit-off run on a subset, and the Terminal-Bench 2.1 revision of the 28 changed tasks.
+
+### Harness bugs found during the run
+
+1. Hermes's run budget is a soft limit. Sessions ran past it, 12 tasks hit the task's own time limit, and in most of
+   them the audit session never started. Fixed by wrapping the session in coreutils `timeout` (commit 09323d10e).
+   No time-limit failures in the 60 trials run after the fix.
+2. qemu-alpine-ssh and qemu-startup use Debian bullseye images whose package index lists versions the mirror no longer
+   serves (404). `apt-get` in the install step failed before the agent started. The prebuilt Hermes does not need those
+   packages, so the failure is now logged and setup continues (commit 398b893c8).
+3. mteb-leaderboard, mteb-retrieve and custom-memory-heap-crash hit Harbor's 10-minute container start limit, most
+   likely while their large images downloaded. All three started on the retry once the images were cached. Pulling
+   images before a run would avoid this. Not fixed yet.
