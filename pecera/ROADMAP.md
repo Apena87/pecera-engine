@@ -41,3 +41,9 @@ Total: 1,373 launches per token. The hridaya build is at 3,029.
 - DSpark speculative decoding. No gain reported on this card class.
 - EXL3 trellis experts. Better quality per byte, but a large port.
 - One CUDA graph for the whole token. This is the step that would need new engine code. Revisit after items 3 to 5, using the launch count and Nsight to see what is left.
+
+## Terminal-Bench follow-ups (2026-11-25)
+- Terminus 2 run at the same server settings, to measure what the harness adds.
+- Audit on/off A/B on a fixed subset.
+- Terminal-Bench 2.1 run, compare changed vs unchanged tasks as a rough contamination check.
+- Pre-pull task images before a run.
