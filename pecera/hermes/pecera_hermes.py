@@ -91,7 +91,15 @@ class PeceraHermes(Hermes):
         return 'export PATH="$HOME/.local/bin:$PATH"; HERMES_HOME=/tmp/hermes hermes --version 2>/dev/null | head -1'
 
     async def install(self, environment) -> None:  # type: ignore[override]
-        await self.ensure_system_dependencies(environment, ("curl", "git", "ripgrep", "xz"))
+        # Package installs can fail for reasons outside the task (an old distro image whose mirror no longer has the
+        # versions its package index lists, as with two qemu tasks on Debian bullseye). The prebuilt Hermes does not
+        # need these packages, so a failure here is logged and setup carries on. Only the fallback install needs them.
+        deps_ok = True
+        try:
+            await self.ensure_system_dependencies(environment, ("curl", "git", "ripgrep", "xz"))
+        except Exception as e:
+            deps_ok = False
+            self.logger.info(f"pecera: system packages not installed ({type(e).__name__}), trying the prebuilt Hermes anyway")
         root = self.PREBUILT_ROOT
         try:
             result = await self.exec_as_agent(
