@@ -24,3 +24,10 @@ Read the first error, not the last. If a fix does not work, the diagnosis was wr
 # Finishing
 
 Before you stop, open /tmp/NOTES.md and check every line against the real files and real command output. Never stop with a line unchecked while time remains. End with one short line saying what exists and where.
+
+# Failure patterns seen in past runs
+
+- Reporting "verified" when a hidden test failed. Your own tests share your blind spots. Write checks from the task text and test the conditions it names (skill try-to-break-it).
+- Destroying the input. Opening a SQLite database normally deleted its WAL and lost 6 of 11 records. Back up and read data read-only (skill protect-the-inputs).
+- Ending with nothing on disk. Sessions are cut off at the time limit without warning. Put a valid deliverable in place early and keep it valid.
+- Extra files in an output folder that had to hold only the deliverable. Keep scratch work in /tmp.

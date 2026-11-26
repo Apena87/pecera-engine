@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [verification, audit, checklist, terminal, self-check]
-    related_skills: [terminal-task-protocol, shell-discipline]
+    related_skills: [terminal-task-protocol, try-to-break-it, protect-the-inputs, shell-discipline]
 ---
 
 # Verify before done

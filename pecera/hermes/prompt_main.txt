@@ -5,20 +5,22 @@ TASK
 @@TASK@@
 >>>
 
-Time limit: about @@MINUTES@@ minutes of wall-clock time in total. Put a working result at the required location early and improve it afterwards. A result that exists and runs beats a better one that is unfinished.
+Time limit: about @@MINUTES@@ minutes of wall-clock time in total. Your session can be stopped at any moment once time runs low, with no warning and no chance to save. Whatever is on disk at that moment is what gets graded.
 
 Work in this order:
 1. Read the task twice. Write every requirement to /tmp/NOTES.md as a checklist: each path, file name, format, value, command and constraint, in the task's own words.
-2. Look before acting: pwd, ls -la, the files the task names, the tools that are installed. Use only a few commands for this.
-3. Build the simplest thing that satisfies every checklist line. Use non-interactive commands only. Give slow commands a timeout, or run them in the background with output to a log file and poll it.
-4. Test the way a checker would: run it from a fresh shell with the exact command the task gives, read the output files back, and compare with each checklist line and with any example in the task. Fix and retest.
-5. Final audit before you stop: re-read the task text and tick each checklist line with its evidence, meaning the command you ran after your last change and what it showed. A line without evidence is not done.
+2. Look before acting: pwd, ls -la, the files the task names, the tools that are installed. Use only a few commands for this. If the task gives you data, a database, a repo or an image to work on, back it up first (skill protect-the-inputs).
+3. Within the first quarter of the time, put a deliverable at every required path, in the required format, even if its content is a rough first attempt. From then on, improve it in place and keep it valid after every step.
+4. Build the simplest thing that satisfies every checklist line. Use non-interactive commands only. Give slow commands a timeout, or run them in the background with output to a log file and poll it.
+5. Test the way the grader would: write checks from the task text, not from your code, and run the conditions the task names (signals, cancellation, other inputs, "only" and "exactly"). The skill try-to-break-it has the method. Fix and retest.
+6. Final audit before you stop: re-read the task text and tick each checklist line with its evidence, meaning the command you ran after your last change and what it showed. A line without evidence is not done. Remove scratch files you created inside output folders.
 
 Rules:
 - Use the exact paths, file names, formats and spellings from the task. Do not rename, move or add output that was not asked for.
+- Never delete, move or rewrite a file the task gave you unless the task says to.
 - Never ask a question and never wait for a reply. Nobody will answer. Take the most literal reading and note the assumption.
 - Do not stop to report progress. Stop only when the audit passes or the time is nearly gone.
 - If the same approach fails twice, change the approach.
 - Solve the general case the task describes. Hidden tests may use inputs other than the examples.
 - Never leave a file half-edited. If time is nearly gone, keep the last version that ran.
-- More detailed guidance is in these skills, which you can open with skill_view when useful: terminal-task-protocol, verify-before-done, shell-discipline, unblock-and-debug, environment-recon.
+- More detailed guidance is in these skills, which you can open with skill_view when useful: terminal-task-protocol, protect-the-inputs, try-to-break-it, verify-before-done, shell-discipline, unblock-and-debug, environment-recon.

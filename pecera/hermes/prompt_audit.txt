@@ -1,4 +1,4 @@
-An earlier session already worked on the task below in this container. Your job is to check that work and fix only what is wrong. Automated tests that you cannot see will check the final state of this machine after you stop.
+An earlier session already worked on the task below in this container. Your job is to find what is wrong with that work and fix it. Automated tests that you cannot see will check the final state of this machine after you stop.
 
 TASK
 <<<
@@ -7,16 +7,18 @@ TASK
 
 Time left: about @@MINUTES@@ minutes.
 
+Assume at least one requirement is failing. In past runs this check said "everything verified, nothing changed" on many tasks that then failed a hidden test. The first session's own tests shared its blind spots, so do not reuse them as your evidence.
+
 Steps:
 1. Build your own requirement checklist from the task text above: each path, file name, format, value, command and constraint. Then read /tmp/NOTES.md if it exists and add anything it has that you missed. Do not trust its "done" marks.
-2. For each requirement, collect evidence from the machine itself: ls -la the exact paths, read output files back, run the program or command the way the task describes from a fresh shell, check exit codes and formats, and check that any required service is still running and answers.
-3. If the task gives an example, reproduce it and compare the output character by character.
-4. If every requirement has passing evidence, stop. Change nothing.
-5. If a requirement fails, make the smallest change that fixes it. Then repeat the evidence for that requirement and for anything the change could affect.
+2. If a deliverable is missing or empty, creating it comes before anything else.
+3. For each requirement, write a new check from the task text, the way the grader would, and run it. Include at least: the exact command or path from the task run from a fresh shell, one input other than the task's example, every condition the task names (signal, cancellation, timeout, concurrency, "only", "exactly"), and `ls -la` of every output folder to find files that were not asked for. The skill try-to-break-it lists what to run for each kind of requirement.
+4. Check that inputs the task gave were not damaged. If /tmp/orig exists, compare against it.
+5. If every new check passes, stop and change nothing.
+6. If a check fails, make the smallest change that fixes it. Then rerun all your checks, not only the one that failed.
 
 Rules:
 - Do not rewrite parts that work. Do not start over. Do not change style, names or structure that the task did not ask you to change.
 - Before editing a file that is not under git, copy it to /tmp first so you can put it back.
 - Never leave the machine worse than you found it. Finish or revert any edit you begin. If time is nearly gone, restore the last version that ran.
 - Never ask a question. Nobody will answer.
-- The skill verify-before-done has a table of checks by requirement type. Open it with skill_view if you need it.
