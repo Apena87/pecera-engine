@@ -1,0 +1,132 @@
+│ /tmp/NOTES.md
+│ @@ -0,0 +1,29 @@
+│ +# Inkhorn Reef — review session checklist
+│ +
+│ +Task: look at what was built, then fix it. ~90 min wall clock.
+│ +
+│ +## Checklist
+│ +- [ ] Screenshots of: title, level select, start of level 1, level 1 after a few seconds of play with ink used, pause screen, win screen, lose screen, start of levels 5 and 8
+│ +- [ ] Review each screenshot vs ORIGINAL_TASK.md + README.md claims
+│ +- [ ] Check game as player: bot timings vs each level's time limit; difficulty of levels; screen vs sim agreement
+│ +- [ ] Fix what is wrong
+│ +- [ ] Keep sim.js rules, API, bot output format, tests working: node --test tests/ + bot on all levels after changes
+│ +- [ ] New screenshots of every changed screen + re-look
+│ +- [ ] REVIEW.md: one section per screenshot + gameplay/difficulty section with bot timings before/after + still-wrong list
+│ +- [ ] Update README.md claims; add PROGRESS.md entry
+│ +- [ ] Final audit
+│ +
+│ +## Screenshot plan (via /opt/shot.js)
+│ +- title /tmp/shots/title.png
+│ +- select /tmp/shots/select.png (click:#startBtn)
+│ +- start1 /tmp/shots/start1.png (click level card 0)
+│ +- play1 /tmp/shots/play1.png (wait + ArrowRight + Space + wait)
+│ +- pause /tmp/shots/pause.png (Escape)
+│ +- win /tmp/shots/win.png (teleport seacorns into stable, wait > 500ms)
+│ +- lose /tmp/shots/lose.png (set timeLimitSec tiny, wait)
+│ +- lvl5 /tmp/shots/lvl5.png (startLevel(4))
+│ +- lvl8 /tmp/shots/lvl8.png (startLevel(7))
+│ +
+│ +## Commands
+│ +- node --test tests/  (from /app/game)
+│ +- node tools/solve.js levels/0N.json 1
+│ game/REVIEW.md
+│ @@ -0,0 +1,190 @@
+│ +# Inkhorn Reef — Visual Review
+│ +
+│ +Date: this session (after the ink-bar CSS and title-scene position fixes).
+│ +Method: headless Chromium via `node /opt/shot.js <out.png> [steps]`, then
+│ +`vision_analyze` and pixel-level checks on the saved PNG. All screenshots
+│ +are 1280x800 Chromium viewport captures from `file:///app/game/index.html`.
+│ +
+│ +Before/after comparison: the two fixes described below were made in this
+│ +session; every "after" screenshot is a fresh capture taken after the fix.
+│ +
+│ +---
+│ +
+│ +## 1. Title screen (before: octopus hidden behind the panel)
+│ +
+│ +Before: `/tmp/shots/title.png` — the purple octopus was drawn at
+│ +`vw/2, vh*0.58`, directly under the centered 340px-tall title panel
+│ +(`vh*0.42` top edge is about `vh*0.5-170px`), so the panel covered the
+│ +octopus and only sparse seacorns peeked out from behind it.
+│ +
+│ +What was wrong: the title art was invisible — the one scene whose whole
+│ +point is "animated octopus and seacorns" had no visible octopus.
+│ +
+│ +What changed: in `drawTitleScene` the octopus is now drawn at
+│ +`vh*0.80` (below the panel) and its 5 seacorns orbit at
+│ +`min(vw*0.24, 260) x min(vh*0.085, 64)` instead of `vh*0.58` / `vh*0.18`.
+│ +
+│ +After: `/tmp/shots/title_fixed.png` — octopus clearly visible below the
+│ +panel, five seacorns around it, panel reads "INKHORN REEF" / "Guide Ollie
+│ +..." / "Start" / "Arrow keys or WASD · Space = ink · P = pause · R =
+│ +restart · M = mute". Verified by vision_analyze on the crop — no console
+│ +errors. This fixes the README claim "Title screen with an animated
+│ +octopus and seacorns" (the octopus is now genuinely visible).
+│ +
+│ +## 2. Level select screen (fresh capture, no changes needed)
+│ +
+│ +`/tmp/shots/select_fixed.png` — centered panel, gold serif "CHOOSE A
+│ +LEVEL", 4x2 grid of 8 cards (First Swim / Current Drift / Jelly Crossing /
+│ +Twin Rocks / Jelly Shuffle / Reef Rush / Undertow / Coral Flood), each
+│ +with a gold number and "Not attempted." (correct: nothing played yet in
+│ +a fresh headless browser), Back button bottom-left. Matches the README
+│ +and the title-screen handoff. No fixes needed.
+│ +
+│ +## 3. Start of level 1 (before: ink bar appeared empty)
+│ +
+│ +Before: `/tmp/shots/start1.png` and `hud_crop_start1.png` — pills "Lv 1" /
+│ +"Time 1:55" / "0 / 3" / "INK" visible, but the gradient track behind
+│ +"INK" read as empty ("about 0%"). Traced to CSS: `#inkWrap` / `#inkFill`
+│ +were `display: inline` with no block width — inside the inline-flow HUD
+│ +strip they rendered as a thin capsule with no visible fill.
+│ +
+│ +What changed: `#inkWrap` -> `display: block; width:160px; height:12px;`
+│ +and `#inkFill` -> `display:block; height:100%;` (block, fills 100% when
+│ +full). No sim logic changed.
+│ +
+│ +After: `/tmp/shots/start3.png` + pixel check of the bar row — the track
+│ +gradient (deep purple #38104e to pink #e99fff) spans x=359-511, i.e.
+│ +~152px of the 160px track, ~95% full at level start (ink 100, no ink
+│ +used). "Time 0:44" (0:45 limit minus one tick — correct), "0 / 3", "Lv
+│ +1". Fixed.
+│ +
+│ +## 4. Level 1 after a few seconds of play with ink used
+│ +
+│ +Before: `/tmp/shots/play1.png` showed the same empty bar; also "Time
+│ +1:55" (20 minutes limit) — the timer never pressured the player.
+│ +
+│ +What changed: **time limits tightened** (see gameplay section) — 01
+│ +45s, 02 55s, 03 60s, 04 65s, 05 75s, 06 85s, 07 95s, 08 110s — the
+│ +simulation is unchanged except for the loss condition.
+│ +
+│ +After: `/tmp/shots/play3.png` + pixel check — pills "Lv 1" / "Time 0:40"
+│ +/ "0 / 3" / "INK"; gradient fill spans x=359-451 = ~92px of the 160px
+│ +track = ~58% full after ~4s of play including a 400ms Space press (matches
+│ +~1-2 ink clouds at INK_COST 20, plus bubble refills over time).
+│ +Animation is running: a 0.7s-later frame differs in 203,121 pixels
+│ +(~20% of the canvas) — light shafts, particles and seacorns are moving.
+│ +
+│ +Fresh HUD crops: `/tmp/shots/hud3_start_crop.png` (start, ~95%) and
+│ +`/tmp/shots/hud3_play_crop.png` (after play, ~58%).
+│ … omitted 112 diff line(s) across 1 additional file(s)/section(s)
+Done. Final state of the machine:
+
+What was fixed (in /app/game/, all verified):
+- index.html CSS — #inkWrap/#inkFill were `display:inline` so the ink bar track rendered as an invisible capsule; now block (160×12) with 100%-height fill. Pixel-checked ~95% full at level start and ~58% after ~4s of play with a 400ms ink press.
+- index.html drawTitleScene — octopus was at vh*0.58 (hidden behind the panel) with seacorns orbiting at vh*0.18; now vh*0.80 with a smaller orbit; verified visible below the panel.
+- levels 01-08.json + embedded LEVELS in index.html — timeLimitSec 120/140/150/150/160/170/180/190 → 45/55/60/65/75/85/95/110 (both copies re-verified deep-equal); sim logic untouched.
+
+New docs on disk:
+- /app/game/REVIEW.md — one section per screenshot (title, level select, start of level 1, level 1 with ink after ~4s, pause, win, lose, start of levels 5 and 8) with what you saw, what broke, what changed, after-shot details; bot timings before/after; still-wrong list.
+- /app/game/README.md — claims now match what was seen (ink bar, octopus visible, win/lose button differences, tightened limits).
+- /app/game/PROGRESS.md — new session entry.
+
+Verified after the changes:
+- cd /app/game && node --test tests/ → 31/31 pass (24 sim + 7 levels)
+- bot on all 8 levels → all won (01:376, 02:419, 03:431, 04:437, 05:446, 06:449, 07:492, 08:533 ticks; ~5-12x margin)
+- Fresh screenshots of every changed screen taken and re-viewed (title_fixed, start3/play3 + HUD crops, pause/win/lose unchanged, lvl5/lvl8 unchanged)
+
+Sim, API, bot output format, and tests are unchanged. REVIEW.md lists what's still unverified (audio, headless-untested touch controls, localStorage best-score path, 10-seacorn rendering at this viewport).
+
+session_id: local-7b79a8ab93f51beb3e49da68555d214a6dc1a14acf228c93e093d714a0a7b2c2
