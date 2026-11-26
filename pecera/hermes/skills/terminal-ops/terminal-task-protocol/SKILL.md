@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [terminal, shell, benchmark, autonomous, checklist, verification]
-    related_skills: [verify-before-done, shell-discipline, unblock-and-debug, environment-recon]
+    related_skills: [verify-before-done, try-to-break-it, protect-the-inputs, shell-discipline, unblock-and-debug, environment-recon]
 ---
 
 # Terminal task protocol

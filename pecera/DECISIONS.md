@@ -91,3 +91,18 @@ Newest at the bottom. Each entry gives the choice and the reason.
   Harbor and the model server and removes the leftover task container.
 
 - 2026-11-24 23:30: qemu-alpine-ssh and qemu-startup failed before the agent started. Their Debian bullseye images list package versions the mirror no longer serves (404), so apt-get in the install step failed. The prebuilt Hermes does not need those packages, so that failure is now logged and setup continues. Both tasks are in the retry job.
+
+## 2026-11-26: harness changes from the Terminal-Bench failure review
+
+Failures of the 42 tasks that did not pass, after the retry, grouped by cause:
+- About 15 ended with the agent reporting every requirement verified while a hidden test failed. Examples: a compiled binary left in a folder that had to hold only the source (polyglot-c-py), cancellation cleanup never exercised (cancel-async-tasks), output shape right for the example only (merge-diff-arc-agi-task). The audit session agreed with the first session in each case.
+- About 20 reached the hard time cap still working, mostly tasks the field also rarely solves (cryptanalysis, MIPS, chess, regex-chess, codegolf). Several ended with no deliverable on disk (sqlite-db-truncate).
+- One destroyed its own input: opening the SQLite database deleted the WAL, leaving 5 of 11 records (db-wal-recovery).
+- qemu-alpine-ssh and qemu-startup cannot pass in this setup: the grader's own script needs curl, and the Debian bullseye mirror returns 404 for it. Not a model or harness problem.
+Changes:
+- New skills `protect-the-inputs` and `try-to-break-it`.
+- `prompt_main.txt`: deliverable at every required path within the first quarter of the time, back up given data, grader-style checks, clean output folders.
+- `prompt_audit.txt`: assumes something is failing, requires new checks written from the task text, other inputs, named conditions and folder listings, before it may report nothing to change.
+- `soul.md`: a short list of the failure patterns above.
+- Desktop Hermes: the two skills installed and the SOUL.md section points to them (backup beside it).
+Not yet measured. Next step is a rerun of the failed tasks that finished inside the time limit, compared with their first result.
