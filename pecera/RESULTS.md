@@ -153,3 +153,23 @@ Upstream llama.cpp merged its own Inkling work between 24 and 26 November: fused
 Speed and quality are the same within run-to-run noise. The upstream build uses about 115 MiB more dedicated VRAM. Greedy text is not byte-identical between the two (it splits after about 60 characters), as expected from different kernels with the same math. The fully-masked-row NaN fix in #33063 was not tested directly.
 
 Result: once #33063 merges, the engine can drop the capybaraonchain bias patch and the realugbun and top-k commits and keep only the padded-expert load, the MSVC fix and our own files. That removes the patches that conflict on every rebase.
+
+## DFlash2 drafting (2026-11-26)
+
+Drafter: incoai/Inkling-2-Mini-DFlash2 (0.5B, Apache-2.0), as the Q8_0 GGUF from maternion/Inkling-2-Mini-DFlash2-GGUF (revision 51ca9ca, SHA-256 checked), on the upstream + #33063 test build, which includes upstream's Inkling DFlash2 support (#33073).
+
+**The community GGUF does not work on upstream as published.** With it, draft acceptance was 1 in 1,358. Upstream applies the target's embedding norm to the draft's input only when the draft GGUF carries `token_embd_norm.weight`, which upstream's converter copies from the target. The community file was made for a patched build that applied the norm at runtime, so it lacks the tensor. `pecera/draft/draft_add_embed_norm.py` copies the tensor from the target GGUF into the draft and checks that every other tensor and key is unchanged. With it, acceptance is about 50% on plain text.
+
+**Memory.** The drafter needs about 0.5 GB. With blocks 20-23 on the CPU the first request ran out of GPU memory. All results below use blocks 19-23 on the CPU (11.75 GB used with the drafter, 10.34 GB without).
+
+| Request (blocks 19-23 on CPU) | No draft | Draft, n-max 7 | Acceptance, mean accepted length |
+|---|---|---|---|
+| Plain completion, temperature 0 | 65-67 t/s | 87-91 t/s | 51%, 4.5 |
+| Chat, short prompt, code question, temperature 0 | 64.0 t/s | 78.9 t/s | 49% |
+| Chat, 9.6k prompt, explanation, temperature 0 | 63.7 t/s | 53.9 t/s | 28%, 2.9 |
+| Chat at 6.4k depth, temperature 1.0 (daily settings) | 62 t/s | 41-42 t/s | 17%, 2.2 |
+| Same, `--spec-draft-sampling probabilistic` | 62 t/s | 31-33 t/s | 22-26%, 2.5-2.8 |
+| Same, n-max 3 | 62 t/s | 49-50 t/s | 26-27%, 1.8 |
+| `--spec-draft-p-min 0.5` | | slower in every case | |
+
+On this rig one verification step costs about 3.5 single-token steps, because the 8 drafted tokens together touch most experts in the five blocks on the CPU. Drafting therefore pays only above a mean accepted length of about 3.5: plain completion and short code answers gain 23-35%; long-context answers and sampled chat at temperature 1.0 get slower. Not enabled in the daily launcher. Greedy text with drafting was not byte-identical to greedy text without it after the first 60 characters, which matches the batched-versus-single kernel difference seen between builds; it was not investigated further.

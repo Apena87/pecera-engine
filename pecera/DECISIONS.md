@@ -111,3 +111,6 @@ Not yet measured. Next step is a rerun of the failed tasks that finished inside 
 
 **Wait for #33063, then rebase onto upstream.** The A/B in RESULTS.md shows upstream master with PR #33063 matches the current build on speed, KLD, GSM8K and the long-context item. The daily launcher stays on the current build until the PR merges, because a launcher that depends on an unmerged PR would need rebuilding when the PR changes. The test branch is `test/pr33063` in a worktree at `C:\Llama\pecera-pr33063`. DSpark and DFlash2 drafting are now in upstream and are worth a separate test, since drafting could raise decode speed if a draft model for Inkling-2-Mini is available.
 
+
+**DFlash2 drafting stays off for daily use.** It speeds up plain completion and short code answers by 23-35% but slows down long-context and temperature-1.0 chat, which is most Hermes traffic. It needs one more expert block on the CPU to fit. It becomes worth retesting if roadmap item 8 (VRAM cache for hot experts) or item 5 (VRAM) frees enough memory to keep the verification batch on the GPU.
+
