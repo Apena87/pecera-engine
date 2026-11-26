@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Inkhorn Reef</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #04222f; font-family: Georgia, "Times New Roman", serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; background: #04222f; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+  .hidden { display: none !important; }
+  .panel { background: rgba(4, 34, 47, 0.82); border: 1px solid rgba(140, 226, 255, 0.35); border-radius: 14px; padding: 22px 26px; box-shadow: 0 10px 40px rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+  h1.game-title { font-size: clamp(38px, 7vw, 64px); color: #ffe9a8; margin: 0 0 6px 0; letter-spacing: 3px; text-shadow: 0 0 22px rgba(255, 227, 138, 0.45), 0 2px 0 #0d3a4d; font-variant: small-caps; }
+  .tagline { color: #bfeaff; font-size: clamp(13px, 2vw, 18px); margin-bottom: 18px; letter-spacing: 1px; }
+  .btn { cursor: pointer; font-family: inherit; font-size: 17px; letter-spacing: 1px; color: #04222f; background: linear-gradient(180deg, #ffe9a8, #f7c25c); border: 1px solid #b57c1e; border-radius: 9px; padding: 10px 26px; margin: 6px; box-shadow: 0 4px 0 #8c5a14, 0 6px 16px rgba(0,0,0,0.4); }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #8c5a14; }
+  .btn.secondary { background: linear-gradient(180deg, #c9ecff, #8fd0ee); border-color: #3d7d9e; box-shadow: 0 4px 0 #2c617e; color: #072c3f; }
+  .btn.ghost { background: rgba(255,255,255,0.08); border-color: rgba(140,226,255,0.5); color: #dff4ff; box-shadow: none; }
+  #levelGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 900px; width: 92vw; }
+  .lvl-card { cursor: pointer; text-align: center; background: rgba(8, 44, 60, 0.85); border: 1px solid rgba(140, 226, 255, 0.3); border-radius: 10px; padding: 12px 8px; color: #dff4ff; transition: transform 0.12s, background 0.12s; }
+  .lvl-card:hover { transform: translateY(-3px); background: rgba(16, 64, 84, 0.95); }
+  .lvl-card .num { font-size: 22px; color: #ffe9a8; letter-spacing: 2px; }
+  .lvl-card .name { font-size: 13px; color: #bfeaff; margin-top: 4px; }
+  .lvl-card .best { font-size: 11px; color: #8fd0ee; margin-top: 6px; }
+  #hud { position: fixed; inset: 0 auto auto 0; padding: 10px 14px; z-index: 5; display: flex; gap: 14px; align-items: center; pointer-events: none; font-size: 15px; color: #eaf8ff; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+  #hud .pill { background: rgba(4, 30, 42, 0.72); border: 1px solid rgba(140,226,255,0.35); border-radius: 20px; padding: 5px 14px; }
+  #inkWrap { display: block; width: 160px; height: 12px; background: #12303f; border: 1px solid rgba(140,226,255,0.4); border-radius: 7px; overflow: hidden; }
+  #inkFill { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #38104e, #9b4dff 60%, #ffb1f8); transition: width 0.1s; }
+  #touchControls { position: fixed; inset: auto 0 0 0; display: none; justify-content: space-between; padding: 12px 18px; z-index: 8; pointer-events: none; }
+  #touchControls .pad { display: grid; grid-template-columns: 52px 52px 52px; grid-template-rows: 52px 52px; gap: 6px; pointer-events: auto; }
+  #touchControls .btn-t { border-radius: 9px; background: rgba(10, 40, 56, 0.75); border: 1px solid rgba(140,226,255,0.4); color: #eaf8ff; font-size: 20px; display: flex; align-items: center; justify-content: center; user-select: none; touch-action: none; }
+  #touchControls .btn-ink { pointer-events: auto; width: 74px; height: 74px; border-radius: 50%; align-self: center; background: rgba(70, 20, 110, 0.8); border: 2px solid rgba(192, 96, 255, 0.75); color: #f3d6ff; font-size: 15px; font-weight: bold; user-select: none; touch-action: none; }
+  @media (pointer: coarse) { #touchControls.show { display: flex; } }
+  .overlay-text { color: #eaf8ff; font-size: clamp(18px, 3vw, 26px); text-align: center; margin: 6px 0 2px; }
+  .small { font-size: 13px; color: #bfeaff; }
+  #muteBtn { position: fixed; top: 10px; right: 14px; z-index: 9; font-size: 18px; background: rgba(4,30,42,0.7); color: #dff4ff; border: 1px solid rgba(140,226,255,0.35); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <span class="pill" id="hudLevel">Lv 1</span>
+  <span class="pill" id="hudTime">Time 0:00</span>
+  <span class="pill" id="hudRescued">0 / 0</span>
+  <span class="pill"><span style="font-size:12px; color:#bfeaff">INK</span></span>
+  <span id="inkWrap"><span id="inkFill"></span></span>
+</div>
+<button id="muteBtn" class="hidden" title="Mute (M)">🔊</button>
+
+<div id="titleScreen" class="screen">
+  <div class="panel" style="text-align:center">
+    <h1 class="game-title">Inkhorn Reef</h1>
+    <div class="tagline">Guide Ollie and the seacorns to the Coral Stable</div>
+    <button class="btn" id="startBtn">Start</button>
+    <div class="small">Arrow keys or WASD &nbsp;·&nbsp; Space = ink &nbsp;·&nbsp; P = pause &nbsp;·&nbsp; R = restart &nbsp;·&nbsp; M = mute</div>
+  </div>
+</div>
+
+<div id="selectScreen" class="screen hidden">
+  <div class="panel" style="width: 96vw; max-width: 940px">
+    <h1 class="game-title" style="font-size: clamp(24px, 4vw, 40px)">Choose a Level</h1>
+    <div id="levelGrid"></div>
+    <button class="btn secondary" id="backToTitleBtn">Back</button>
+  </div>
+</div>
+
+<div id="pauseScreen" class="screen hidden">
+  <div class="panel" style="text-align:center">
+    <div class="overlay-text">Paused</div>
+    <button class="btn" id="resumeBtn">Resume</button>
+    <button class="btn ghost" id="quitToSelectBtn">Level Select</button>
+  </div>
+</div>
+
+<div id="overScreen" class="screen hidden">
+  <div class="panel" style="text-align:center">
+    <div class="overlay-text" id="overTitle">Level Complete</div>
+    <div class="small" id="overDetail"></div>
+    <button class="btn" id="retryBtn">Retry</button>
+    <button class="btn secondary" id="nextBtn">Next Level</button>
+    <button class="btn ghost" id="overExitBtn">Level Select</button>
+  </div>
+</div>
+
+<div id="touchControls">
+  <div class="pad">
+    <button class="btn-t" data-k="up" style="grid-column:2">▲</button>
+    <button class="btn-t" data-k="left" style="grid-column:1; grid-row:2">◀</button>
+    <button class="btn-t" data-k="down" style="grid-column:2; grid-row:2">▼</button>
+    <button class="btn-t" data-k="right" style="grid-column:3; grid-row:2">▶</button>
+  </div>
+  <button class="btn-ink" data-k="ink">INK</button>
+</div>
+
+<script src="sim.js"></script>
+<script>
+var LEVELS = [
+  {
+    "id": "01",
+    "name": "First Swim",
+    "width": 1200,
+    "height": 800,
+    "timeLimitSec": 45,
+    "seacorns": 5,
+    "required": 3,
+    "player": {
+      "x": 150,
+      "y": 400
+    },
+    "spawn": {
+      "x": 150,
+      "y": 400,
+      "r": 110
+    },
+    "stable": {
+      "x": 950,
+      "y": 300,
+      "w": 200,
+      "h": 200
+    },
+    "currents": [
+      {
+        "x": 420,
+        "y": 0,
+        "w": 380,
+        "h": 800,
+        "dx": 0,
+        "dy": 0.35
+      }
+    ],
+    "rocks": [
+      {
+        "x": 620,
+        "y": 620,
+        "r": 55
+      }
+    ],
+    "whirlpools": [],
+    "jellyfish": [],
+    "bubbles": [
+      {
+        "x": 430,
+        "y": 190
+      },
+      {
+        "x": 700,
+        "y": 620
+      }
+    ]
+  },
+  {
+    "id": "02",
+    "name": "Current Drift",
+    "width": 1400,
+    "height": 1000,
+    "timeLimitSec": 55,
+    "seacorns": 6,
+    "required": 4,
+    "player": {
+      "x": 120,
+      "y": 500
+    },
+    "spawn": {
+      "x": 290,
+      "y": 500,
+      "r": 110
+    },
+    "stable": {
+      "x": 1140,
+      "y": 380,
+      "w": 200,
+      "h": 240
+    },
+    "currents": [
+      {
+        "x": 520,
+        "y": 0,
+        "w": 220,
+        "h": 1000,
+        "dx": 0,
+        "dy": 0.32
+      },
+      {
+        "x": 860,
+        "y": 0,
+        "w": 220,
+        "h": 1000,
+        "dx": 0,
+        "dy": -0.32
+      }
+    ],
+    "rocks": [
+      {
+        "x": 860,
+        "y": 770,
+        "r": 60
+      },
+      {
+        "x": 560,
+        "y": 230,
+        "r": 45
+      }
+    ],
+    "whirlpools": [
+      {
+        "x": 710,
+        "y": 500,
+        "r": 85,
+        "strength": 1.1
+      }
+    ],
+    "jellyfish": [],
+    "bubbles": [
+      {
+        "x": 430,
+        "y": 700
+      },
+      {
+        "x": 430,
+        "y": 320
+      }
+    ]
+  },
+  {
+    "id": "03",
+    "name": "Jelly Crossing",
+    "width": 1500,
+    "height": 1000,
+    "timeLimitSec": 60,
+    "seacorns": 7,
+    "required": 4,
+    "player": {
+      "x": 130,
+      "y": 500
+    },
+    "spawn": {
+      "x": 300,
+      "y": 500,
+      "r": 120
+    },
+    "stable": {
+      "x": 1260,
+      "y": 330,
+      "w": 200,
+      "h": 320
+    },
+    "currents": [
+      {
+        "x": 760,
+        "y": 0,
+        "w": 240,
+        "h": 1000,
+        "dx": 0,
+        "dy": 0.28
+      }
+    ],
+    "rocks": [
+      {
+        "x": 500,
+        "y": 500,
+        "r": 55
+      }
+    ],
+    "whirlpools": [],
+    "jellyfish": [
+      {
+        "path": [
+          [
+            700,
+            150
+          ],
+          [
+            700,
+            850
+          ]
+        ],
+        "speed": 1.7
+      }
+    ],
+    "bubbles": [
+      {
+        "x": 420,
+        "y": 680
+      },
+      {
+        "x": 1120,
+        "y": 760
+      }
+    ]
+  },
+  {
+    "id": "04",
+    "name": "Twin Rocks",
+    "width": 1600,
+    "height": 1000,
+    "timeLimitSec": 65,
+    "seacorns": 8,
+    "required": 5,
+    "player": {
+      "x": 130,
+      "y": 500
+    },
+    "spawn": {
+      "x": 300,
+      "y": 500,
+      "r": 130
+    },
+    "stable": {
+      "x": 1310,
+      "y": 350,
+      "w": 240,
+      "h": 300
+    },
+    "currents": [
+      {
+        "x": 650,
+        "y": 0,
+        "w": 200,
+        "h": 1000,
+        "dx": 0,
+        "dy": 0.3
+      },
+      {
+        "x": 950,
+        "y": 0,
+        "w": 260,
+        "h": 1000,
+        "dx": 0,
+        "dy": -0.3
+      }
+    ],
+    "rocks": [
+      {
+        "x": 800,
+        "y": 300,
+        "r": 55
+      },
+      {
+        "x": 800,
+        "y": 700,
+        "r": 55
+      }
+    ],
+    "whirlpools": [
+      {
+        "x": 1120,
+        "y": 500,
+        "r": 95,
+        "strength": 1.2
+      }
+    ],
+    "jellyfish": [],
+    "bubbles": [
+      {
+        "x": 420,
+        "y": 300
+      },
+      {
+        "x": 420,
+        "y": 700
+      }
+    ]
+  },
+  {
+    "id": "05",
+    "name": "Jelly Shuffle",
+    "width": 1600,
+    "height": 1000,
+    "timeLimitSec": 75,
+    "seacorns": 8,
+    "required": 5,
+    "player": {
+      "x": 130,
+      "y": 500
+    },
+    "spawn": {
+      "x": 290,
+      "y": 500,
+      "r": 120
+    },
+    "stable": {
+      "x": 1320,
+      "y": 340,
+      "w": 220,
+      "h": 320
+    },
+    "currents": [
+      {
+        "x": 700,
+        "y": 0,
+        "w": 220,
+        "h": 1000,
+        "dx": 0,
+        "dy": 0.3
+      }
+    ],
+    "rocks": [
+      {
+        "x": 520,
+        "y": 240,
+        "r": 50
+      },
+      {
+        "x": 520,
+        "y": 760,
+        "r": 50
+      }
+    ],
+    "whirlpools": [
+      {
+        "x": 900,
+        "y": 500,
+        "r": 100,
+        "strength": 1.2
+      }
+    ],
+    "jellyfish": [
+      {
+        "path": [
+          [
+            850,
+            180
+          ],
+          [
+            850,
+            820
+          ]
+        ],
+        "speed": 1.8
+      }
+    ],
+    "bubbles": [
+      {
+        "x": 400,
+        "y": 620
+      }
+    ]
+  },
+  {
+    "id": "06",
+    "name": "Reef Rush",
+    "width": 1600,
+    "height": 1100,
+    "timeLimitSec": 85,
+    "seacorns": 9,
+    "required": 6,
+    "player": {
+      "x": 130,
+      "y": 550
+    },
+    "spawn": {
+      "x": 300,
+      "y": 550,
+      "r": 130
+    },
+    "stable": {
+      "x": 1330,
+      "y": 410,
+      "w": 220,
+      "h": 320
+    },
+    "currents": [
+      {
+        "x": 620,
+        "y": 0,
+        "w": 200,
+        "h": 1100,
+        "dx": 0,
+        "dy": 0.3
+      },
+      {
+        "x": 920,
+        "y": 0,
+        "w": 200,
+        "h": 1100,
+        "dx": 0,
+        "dy": -0.3
+      }
+    ],
+    "rocks": [
+      {
+        "x": 770,
+        "y": 300,
+        "r": 60
+      },
+      {
+        "x": 770,
+        "y": 800,
+        "r": 60
+      }
+    ],
+    "whirlpools": [
+      {
+        "x": 1090,
+        "y": 550,
+        "r": 100,
+        "strength": 1.3
+      }
+    ],
+    "jellyfish": [
+      {
+        "path": [
+          [
+            900,
+            110
+          ],
+          [
+            900,
+            990
+          ]
+        ],
+        "speed": 1.8
+      },
+      {
+        "path": [
+          [
+            620,
+            550
+          ],
+          [
+            770,
+            550
+          ],
+          [
+            620,
+            550
+          ]
+        ],
+        "speed": 2.1
+      }
+    ],
+    "bubbles": [
+      {
+        "x": 420,
+        "y": 600
+      },
+      {
+        "x": 420,
+        "y": 400
+      }
+    ]
+  },
+  {
+    "id": "07",
+    "name": "Undertow",
+    "width": 1700,
+    "height": 1100,
+    "timeLimitSec": 95,
+    "seacorns": 9,
+    "required": 6,
+    "player": {
+      "x": 130,
+      "y": 550
+    },
+    "spawn": {
+      "x": 280,
+      "y": 550,
+      "r": 120
+    },
+    "stable": {
+      "x": 1400,
+      "y": 380,
+      "w": 220,
+      "h": 340
+    },
+    "currents": [
+      {
+        "x": 600,
+        "y": 0,
+        "w": 180,
+        "h": 1100,
+        "dx": 0,
+        "dy": 0.32
+      },
+      {
+        "x": 880,
+        "y": 0,
+        "w": 160,
+        "h": 1100,
+        "dx": 0,
+        "dy": -0.32
+      }
+    ],
+    "rocks": [
+      {
+        "x": 760,
+        "y": 250,
+        "r": 55
+      },
+      {
+        "x": 760,
+        "y": 850,
+        "r": 55
+      },
+      {
+        "x": 1130,
+        "y": 550,
+        "r": 45
+      }
+    ],
+    "whirlpools": [
+      {
+        "x": 1000,
+        "y": 550,
+        "r": 100,
+        "strength": 1.3
+      },
+      {
+        "x": 1400,
+        "y": 140,
+        "r": 75,
+        "strength": 1
+      }
+    ],
+    "jellyfish": [
+      {
+        "path": [
+          [
+            920,
+            140
+          ],
+          [
+            920,
+            960
+          ]
+        ],
+        "speed": 1.9
+      },
+      {
+        "path": [
+          [
+            1130,
+            550
+          ],
+          [
+            1300,
+            550
+          ]
+        ],
+        "speed": 2
+      }
+    ],
+    "bubbles": [
+      {
+        "x": 420,
+        "y": 550
+      },
+      {
+        "x": 480,
+        "y": 180
+      }
+    ]
+  },
+  {
+    "id": "08",
+    "name": "Coral Flood",
+    "width": 1800,
+    "height": 1100,
+    "timeLimitSec": 110,
+    "seacorns": 10,
+    "required": 7,
+    "player": {
+      "x": 130,
+      "y": 550
+    },
+    "spawn": {
+      "x": 290,
+      "y": 550,
+      "r": 120
+    },
+    "stable": {
+      "x": 1500,
+      "y": 410,
+      "w": 220,
+      "h": 340
+    },
+    "currents": [
+      {
+        "x": 620,
+        "y": 0,
+        "w": 180,
+        "h": 1100,
+        "dx": 0,
+        "dy": 0.34
+      },
+      {
+        "x": 900,
+        "y": 0,
+        "w": 180,
+        "h": 1100,
+        "dx": 0,
+        "dy": -0.34
+      }
+    ],
+    "rocks": [
+      {
+        "x": 820,
+        "y": 240,
+        "r": 55
+      },
+      {
+        "x": 820,
+        "y": 860,
+        "r": 55
+      },
+      {
+        "x": 1130,
+        "y": 550,
+        "r": 45
+      }
+    ],
+    "whirlpools": [
+      {
+        "x": 1050,
+        "y": 550,
+        "r": 110,
+        "strength": 1.4
+      },
+      {
+        "x": 1400,
+        "y": 170,
+        "r": 80,
+        "strength": 1.1
+      }
+    ],
+    "jellyfish": [
+      {
+        "path": [
+          [
+            900,
+            160
+          ],
+          [
+            900,
+            950
+          ]
+        ],
+        "speed": 1.9
+      },
+      {
+        "path": [
+          [
+            1130,
+            550
+          ],
+          [
+            1320,
+            550
+          ]
+        ],
+        "speed": 2.1
+      },
+      {
+        "path": [
+          [
+            620,
+            900
+          ],
+          [
+            820,
+            900
+          ]
+        ],
+        "speed": 2.3
+      }
+    ],
+    "bubbles": [
+      {
+        "x": 420,
+        "y": 600
+      },
+      {
+        "x": 480,
+        "y": 180
+      },
+      {
+        "x": 480,
+        "y": 950
+      }
+    ]
+  }
+];
+
+</script>
+<script>
+(function () {
+  "use strict";
+  if (!window.Sim || !window.LEVELS) {
+    // headless/test harness: stay silent rather than throw
+    return;
+  }
+  var Sim = window.Sim;
+  var LEVELS = window.LEVELS;
+
+  // ---------------- canvas ----------------
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var dpr = 1;
+  var vw = window.innerWidth || 800;
+  var vh = window.innerHeight || 600;
+
+  function resize() {
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(vw * dpr);
+    canvas.height = Math.floor(vh * dpr);
+    canvas.style.width = vw + "px";
+    canvas.style.height = vh + "px";
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ---------------- audio ----------------
+  var audio = { ctx: null, master: null };
+  var muted = false;
+  var musicTimer = null;
+  var musicNotes = [392.0, 440.0, 523.25, 440.0, 392.0, 349.23, 392.0, 293.66];
+  var musicIdx = 0;
+
+  function initAudio() {
+    if (audio.ctx) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audio.ctx = new AC();
+      audio.master = audio.ctx.createGain();
+      audio.master.gain.value = 0.55;
+      audio.master.connect(audio.ctx.destination);
+    } catch (e) { audio.ctx = null; }
+  }
+
+  function tone(freq, dur, type, vol, when) {
+    if (!audio.ctx || muted) return;
+    try {
+      var t0 = audio.ctx.currentTime + (when || 0);
+      var o = audio.ctx.createOscillator();
+      var g = audio.ctx.createGain();
+      o.type = type || "triangle";
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(audio.master);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+    } catch (e) { /* ignore */ }
+  }
+
+  function playSound(name) {
+    if (!audio.ctx || muted) return;
+    if (name === "ink") { tone(180, 0.22, "sawtooth", 0.10); tone(90, 0.3, "triangle", 0.06); }
+    else if (name === "bubble") { tone(740, 0.14, "sine", 0.12); tone(1100, 0.2, "sine", 0.09, 0.08); }
+    else if (name === "rescue") { tone(523, 0.12, "triangle", 0.12); tone(659, 0.12, "triangle", 0.12, 0.1); tone(784, 0.2, "triangle", 0.12, 0.2); }
+    else if (name === "stun") { tone(140, 0.28, "sawtooth", 0.10); }
+    else if (name === "win") { var n = [523, 659, 784, 1047]; for (var i = 0; i < n.length; i++) tone(n[i], 0.25, "triangle", 0.13, i * 0.13); }
+    else if (name === "lose") { tone(330, 0.3, "triangle", 0.10); tone(247, 0.4, "triangle", 0.10, 0.22); }
+  }
+
+  function startMusic() {
+    if (musicTimer) return;
+    var tick = function () {
+      musicTimer = null;
+      if (!muted && audio.ctx) {
+        var n = musicNotes[musicIdx % musicNotes.length];
+        tone(n, 0.45, "triangle", 0.035);
+        musicIdx++;
+      }
+      musicTimer = setTimeout(tick, 620);
+    };
+    musicTimer = setTimeout(tick, 120);
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    document.getElementById("muteBtn").textContent = muted ? "🔇" : "🔊";
+  }
+
+  // ---------------- DOM ----------------
+  var body = document.body;
+  var hud = document.getElementById("hud");
+  var hudLevel = document.getElementById("hudLevel");
+  var hudTime = document.getElementById("hudTime");
+  var hudRescued = document.getElementById("hudRescued");
+  var inkFill = document.getElementById("inkFill");
+  var muteBtn = document.getElementById("muteBtn");
+  var screens = {
+    title: document.getElementById("titleScreen"),
+    select: document.getElementById("selectScreen"),
+    pause: document.getElementById("pauseScreen"),
+    over: document.getElementById("overScreen")
+  };
+
+  function showScreen(name) {
+    for (var k in screens) {
+      if (screens.hasOwnProperty(k)) screens[k].classList.add("hidden");
+    }
+    if (name && screens[name]) screens[name].classList.remove("hidden");
+    hud.classList.toggle("hidden", name !== "none");
+    muteBtn.classList.toggle("hidden", name === "title" || name === "select");
+    document.getElementById("touchControls").classList.toggle("show", name === "none" && isTouchDevice());
+  }
+
+  function isTouchDevice() {
+    try {
+      return ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+    } catch (e) { return false; }
+  }
+
+  // ---------------- state ----------------
+  var state = "title"; // title | select | playing | paused | over
+  var currentLevelIndex = 0;
+  var world = null;
+  var lastRescued = 0;
+  var lastInk = 0;
+  var lastBubbles = 0;
+  var lastStun = false;
+  var wonFlag = false;
+  var playSeed = 1;
+
+  var input = { up: false, down: false, left: false, right: false, ink: false };
+  var touchInput = { up: false, down: false, left: false, right: false, ink: false };
+
+  // ---------------- storage ----------------
+  function getBest(index) {
+    try {
+      var raw = localStorage.getItem("inkhorn_reef_best_" + index);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function setBest(index, obj) {
+    try { localStorage.setItem("inkhorn_reef_best_" + index, JSON.stringify(obj)); } catch (e) { /* ignore */ }
+  }
+
+  // ---------------- level select ----------------
+  function buildLevelGrid() {
+    var grid = document.getElementById("levelGrid");
+    grid.innerHTML = "";
+    for (var i = 0; i < LEVELS.length; i++) {
+      (function (idx) {
+        var lvl = LEVELS[idx];
+        var card = document.createElement("div");
+        card.className = "lvl-card";
+        var best = getBest(idx);
+        var bestTxt = best ? ("Best: " + best.rescued + " in " + fmtTime(best.ticks / 60)) : "Not attempted";
+        card.innerHTML = '<div class="num">' + (idx + 1) + '</div><div class="name">' + escapeHtml(lvl.name || ("Level " + (idx + 1))) + '</div><div class="best">' + bestTxt + '</div>';
+        card.addEventListener("click", function () { startLevel(idx); });
+        grid.appendChild(card);
+      })(i);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function fmtTime(s) {
+    s = Math.max(0, Math.floor(s));
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return m + ":" + (sec < 10 ? "0" : "") + sec;
+  }
+
+  function startLevel(index) {
+    currentLevelIndex = index;
+    world = Sim.createWorld(LEVELS[index], playSeed);
+    lastRescued = 0; lastInk = world.octopus.ink; lastBubbles = world.bubbles.length; lastStun = false; wonFlag = false;
+    state = "playing";
+    showScreen("none");
+    hudLevel.textContent = "Lv " + (index + 1);
+    updateHud();
+    if (!audio.ctx) initAudio();
+    if (audio.ctx && audio.ctx.state === "suspended") { try { audio.ctx.resume(); } catch (e) { /* ignore */ } }
+    startMusic();
+  }
+
+  function restart() {
+    startLevel(currentLevelIndex);
+  }
+
+  function nextLevel() {
+    var next = (currentLevelIndex + 1) % LEVELS.length;
+    startLevel(next);
+  }
+
+  function togglePause() {
+    if (state === "playing") {
+      state = "paused";
+      showScreen("pause");
+    } else if (state === "paused") {
+      state = "playing";
+      showScreen("none");
+    }
+  }
+
+  function showOverScreen(won) {
+    var panel = document.getElementById("overScreen");
+    document.getElementById("overTitle").textContent = won ? "Level Complete" : "Out of Time";
+    var rescued = world ? world.rescued : 0;
+    var required = world ? world.required : 0;
+    document.getElementById("overDetail").textContent =
+      won ? ("Rescued " + rescued + " / " + required + " seacorns in " + fmtTime(world.tick / 60)) : ("Rescued " + rescued + " / " + required + " seacorns — the herd drifted beyond reach.");
+    document.getElementById("nextBtn").style.display = won && currentLevelIndex + 1 < LEVELS.length ? "" : "none";
+    state = "over";
+    showScreen("over");
+    if (won) {
+      var cur = getBest(currentLevelIndex);
+      var obj = { rescued: rescued, ticks: world.tick };
+      if (!cur || cur.ticks > world.tick) setBest(currentLevelIndex, obj);
+    }
+  }
+
+  // ---------------- input ----------------
+  function onKeyDown(e) {
+    initAudio();
+    var k = e.key;
+    var handled = true;
+    if (k === "ArrowUp" || k === "w" || k === "W") input.up = true;
+    else if (k === "ArrowDown" || k === "s" || k === "S") input.down = true;
+    else if (k === "ArrowLeft" || k === "a" || k === "A") input.left = true;
+    else if (k === "ArrowRight" || k === "d" || k === "D") input.right = true;
+    else if (k === " ") { input.ink = true; }
+    else if (k === "p" || k === "P" || k === "Escape") { togglePause(); }
+    else if (k === "r" || k === "R") { if (state === "playing" || state === "paused") restart(); }
+    else if (k === "m" || k === "M") { toggleMute(); }
+    else if (k === "Enter") {
+      if (state === "title") startLevelSelect();
+      else if (state === "over" && world && world.status === "won") nextLevel();
+      else if (state === "over") restart();
+    } else { handled = false; }
+    if (handled && (k === "ArrowUp" || k === "ArrowDown" || k === "ArrowLeft" || k === "ArrowRight" || k === " ")) {
+      e.preventDefault();
+    }
+  }
+
+  function onKeyUp(e) {
+    var k = e.key;
+    if (k === "ArrowUp" || k === "w" || k === "W") input.up = false;
+    else if (k === "ArrowDown" || k === "s" || k === "S") input.down = false;
+    else if (k === "ArrowLeft" || k === "a" || k === "A") input.left = false;
+    else if (k === "ArrowRight" || k === "d" || k === "D") input.right = false;
+    else if (k === " ") input.ink = false;
+  }
+
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
+
+  // touch controls
+  function bindTouch(id) {
+    var node = document.querySelector('[data-k="' + id + '"]');
+    if (!node) return;
+    var set = function (v) { return function (e) { e.preventDefault(); initAudio(); touchInput[id] = v; }; };
+    node.addEventListener("touchstart", set(true), { passive: false });
+    node.addEventListener("touchend", set(false), { passive: false });
+    node.addEventListener("touchcancel", set(false), { passive: false });
+    node.addEventListener("mousedown", set(true));
+    node.addEventListener("mouseup", set(false));
+    node.addEventListener("mouseleave", set(false));
+  }
+  bindTouch("up"); bindTouch("down"); bindTouch("left"); bindTouch("right"); bindTouch("ink");
+
+  // start of the loop matters to browsers blocking audio
+  window.addEventListener("pointerdown", function () { initAudio(); startMusic(); });
+
+  // ---------------- buttons ----------------
+  document.getElementById("startBtn").addEventListener("click", function () { startLevelSelect(); });
+  document.getElementById("backToTitleBtn").addEventListener("click", function () { goTitle(); });
+  document.getElementById("resumeBtn").addEventListener("click", function () { togglePause(); });
+  document.getElementById("quitToSelectBtn").addEventListener("click", function () { goSelect(); });
+  document.getElementById("retryBtn").addEventListener("click", function () { restart(); });
+  document.getElementById("nextBtn").addEventListener("click", function () { nextLevel(); });
+  document.getElementById("overExitBtn").addEventListener("click", function () { goSelect(); });
+  muteBtn.addEventListener("click", function () { toggleMute(); });
+
+  function startLevelSelect() {
+    initAudio();
+    buildLevelGrid();
+    state = "select";
+    showScreen("select");
+  }
+
+  function goTitle() {
+    state = "title";
+    showScreen("title");
+  }
+
+  function goSelect() {
+    initAudio();
+    buildLevelGrid();
+    state = "select";
+    showScreen("select");
+  }
+
+  // ---------------- HUD ----------------
+  function updateHud() {
+    if (!world) return;
+    var sec = Math.max(0, world.level.timeLimitSec - world.tick / 60);
+    hudTime.textContent = "Time " + fmtTime(sec);
+    hudRescued.textContent = world.rescued + " / " + world.required;
+    inkFill.style.width = Math.max(0, Math.min(100, world.octopus.ink)) + "%";
+  }
+
+  // ---------------- world update ----------------
+  function stepGame() {
+    if (!world || world.status !== "playing") return;
+    var combined = {
+      up: input.up || touchInput.up,
+      down: input.down || touchInput.down,
+      left: input.left || touchInput.left,
+      right: input.right || touchInput.right,
+      ink: input.ink || touchInput.ink
+    };
+    Sim.step(world, combined);
+
+    var rescued = world.rescued;
+    if (rescued > lastRescued) playSound("rescue");
+    lastRescued = rescued;
+
+    if (world.bubbles.length < lastBubbles) playSound("bubble");
+    lastBubbles = world.bubbles.length;
+
+    var stunnedNow = world.octopus.stunned > 0;
+    if (stunnedNow && !lastStun) playSound("stun");
+    lastStun = stunnedNow;
+
+    if (world.octopus.ink < lastInk - 0.5) playSound("ink");
+    lastInk = world.octopus.ink;
+
+    updateHud();
+
+    if (world.status === "won" && !wonFlag) {
+      wonFlag = true;
+      playSound("win");
+      setTimeout(function () { showOverScreen(true); }, 500);
+    } else if (world.status === "lost") {
+      playSound("lose");
+      setTimeout(function () { showOverScreen(false); }, 400);
+    }
+  }
+
+  // ---------------- input edge-case reset ----------------
+  window.addEventListener("blur", function () {
+    input.up = input.down = input.left = input.right = input.ink = false;
+    touchInput.up = touchInput.down = touchInput.left = touchInput.right = touchInput.ink = false;
+  });
+
+  // ---------------- drawing ----------------
+  function clampN(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+  function drawBackground(level, timeMs) {
+    // deep gradient
+    var grad = ctx.createLinearGradient(0, 0, 0, vh);
+    grad.addColorStop(0, "#06304a");
+    grad.addColorStop(0.55, "#084a64");
+    grad.addColorStop(1, "#04222f");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, vw, vh);
+
+    // light rays
+    ctx.save();
+    ctx.globalAlpha = 0.10;
+    ctx.fillStyle = "#bfefff";
+    for (var i = 0; i < 5; i++) {
+      var bx = ((i * 337 + Math.sin(timeMs * 0.0004 + i) * 120) + timeMs * 0.02) % (vw + 400) - 200;
+      ctx.beginPath();
+      ctx.moveTo(bx, -40);
+      ctx.lineTo(bx + 150, -40);
+      ctx.lineTo(bx + 340, vh + 40);
+      ctx.lineTo(bx + 60, vh + 40);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // drifting particles
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    for (var j = 0; j < 40; j++) {
+      var px = ((j * 153 + timeMs * 0.018 * (1 + (j % 3))) % (vw + 80)) - 40;
+      var py = ((j * 97 + timeMs * 0.013 * (1 + (j % 2))) % (vh + 80)) - 40;
+      ctx.fillStyle = "rgba(220, 240, 255, 0.45)";
+      ctx.beginPath();
+      ctx.arc(px, py, 1.3 + (j % 3), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawCurrents(level) {
+    for (var i = 0; i < level.currents.length; i++) {
+      var c = level.currents[i];
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = "#6adfff";
+      ctx.fillRect(c.x, c.y, c.w, c.h);
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = "#bfefff";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 10]);
+      ctx.beginPath();
+      for (var yy = c.y + 14; yy < c.y + c.h; yy += 26) {
+        ctx.moveTo(c.x + 8, yy);
+        ctx.lineTo(c.x + c.w - 8, yy);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawStable(level) {
+    var st = level.stable;
+    ctx.save();
+    // glow
+    var glow = 0.5 + 0.5 * Math.sin(performance.now() * 0.003);
+    ctx.shadowColor = "rgba(120, 255, 200, 0.8)";
+    ctx.shadowBlur = 14 + 18 * glow;
+    ctx.fillStyle = "rgba(6, 52, 44, 0.92)";
+    ctx.strokeStyle = "#5cf2c0";
+    ctx.lineWidth = 4;
+    roundRect(st.x, st.y, st.w, st.h, 18, true, true);
+    ctx.shadowBlur = 0;
+    // doorway
+    ctx.fillStyle = "#0a3f33";
+    roundRect(st.x + st.w / 2 - 38, st.y + st.h - 58, 76, 58, 20, true, false);
+    ctx.strokeStyle = "#9effd6";
+    ctx.lineWidth = 3;
+    roundRect(st.x + st.w / 2 - 38, st.y + st.h - 58, 76, 58, 20, false, true);
+    // sign
+    ctx.fillStyle = "#5cf2c0";
+    ctx.font = "700 16px Georgia";
+    ctx.textAlign = "center";
+    ctx.fillText("STABLE", st.x + st.w / 2, st.y + 24);
+    ctx.restore();
+  }
+
+  function drawRocks(level) {
+    for (var i = 0; i < level.rocks.length; i++) {
+      var r = level.rocks[i];
+      ctx.save();
+      ctx.fillStyle = "#4e4a44";
+      ctx.strokeStyle = "#2c2a27";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      var n = 7;
+      for (var k = 0; k < n; k++) {
+        var a = (k / n) * Math.PI * 2 - Math.PI / 2;
+        var rr = r.r * (0.8 + 0.2 * Math.sin(i * 3 + k * 2.1));
+        var x = r.x + Math.cos(a) * rr;
+        var y = r.y + Math.sin(a) * rr;
+        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.13)";
+      ctx.beginPath();
+      ctx.arc(r.x - r.r * 0.3, r.y - r.r * 0.3, r.r * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawWhirlpools(level, tick) {
+    for (var i = 0; i < level.whirlpools.length; i++) {
+      var wp = level.whirlpools[i];
+      ctx.save();
+      ctx.translate(wp.x, wp.y);
+      var pulse = 0.5 + 0.5 * Math.sin(tick * 0.1 + i);
+      ctx.strokeStyle = "rgba(90, 190, 255, " + (0.35 + 0.3 * pulse) + ")";
+      ctx.lineWidth = 3;
+      for (var a = 0; a < 5; a++) {
+        ctx.beginPath();
+        for (var p = 0; p < 60; p++) {
+          var ph = (p / 60) * Math.PI * 6 + tick * 0.08 + a * (Math.PI * 2 / 5);
+          var rad = 12 + (p / 60) * (wp.r - 12);
+          var x = Math.cos(ph) * rad;
+          var y = Math.sin(ph) * rad;
+          if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(6, 20, 40, 0.75)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawJellies(level, tick) {
+    for (var i = 0; i < level.jellyfish.length; i++) {
+      var jl = level.jellyfish[i];
+      var p = Sim._jellyPosition(jl, tick);
+      var wave = Math.sin(tick * 0.15 + i * 2.3) * 0.12;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(wave);
+      ctx.globalAlpha = 0.9;
+      // tentacles
+      ctx.strokeStyle = "rgba(255, 170, 220, 0.85)";
+      ctx.lineWidth = 2;
+      for (var t = -2; t <= 2; t++) {
+        ctx.beginPath();
+        ctx.moveTo(t * 6, 6);
+        var ph = tick * 0.12 + t;
+        ctx.quadraticCurveTo(t * 6 + Math.sin(ph) * 8, 24, t * 6 + Math.sin(ph + 1) * 12, 38);
+        ctx.stroke();
+      }
+      // bell
+      var bell = ctx.createRadialGradient(0, 0, 2, 0, 0, 20);
+      bell.addColorStop(0, "rgba(255, 190, 240, 0.95)");
+      bell.addColorStop(1, "rgba(220, 90, 200, 0.45)");
+      ctx.fillStyle = bell;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, Math.PI, 0);
+      ctx.quadraticCurveTo(18, 4, 10, 9);
+      ctx.quadraticCurveTo(0, 16, -10, 9);
+      ctx.quadraticCurveTo(-18, 4, -18, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawBubbles(bubbles, tick) {
+    for (var i = 0; i < bubbles.length; i++) {
+      var b = bubbles[i];
+      var wob = Math.sin(tick * 0.18 + i * 1.7) * 0.4;
+      ctx.save();
+      ctx.shadowColor = "rgba(255, 240, 150, 0.9)";
+      ctx.shadowBlur = 8;
+      var g = ctx.createRadialGradient(b.x - 4, b.y - 5, 1, b.x, b.y, 12);
+      g.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+      g.addColorStop(0.55, "rgba(140, 235, 255, 0.85)");
+      g.addColorStop(1, "rgba(190, 140, 255, 0.15)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x + Math.sin(tick * 0.1) * 2, b.y + Math.cos(tick * 0.12) * 2, 10 + wobbleScale(wob) * 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function wobbleScale(wob) { return Math.abs(wob); }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function drawInkClouds(clouds) {
+    for (var i = 0; i < clouds.length; i++) {
+      var c = clouds[i];
+      var age = 75 - c.ttl;
+      var alpha = Math.max(0, c.ttl / 75) * 0.75;
+      ctx.save();
+      ctx.fillStyle = "rgba(40, 12, 60, " + alpha + ")";
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(130, 60, 190, " + (alpha * 0.7) + ")";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.r * 0.75 + 8 * Math.sin(age * 0.05 + i), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawSeacorn(s, tick) {
+    var manePhase = tick * 0.11 + s.id * 1.9;
+    var glow = s.rescued ? (0.6 + 0.4 * Math.sin(tick * 0.15 + s.id)) : 0;
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    var facing = s.vx >= 0 ? 1 : -1;
+    ctx.scale(facing, 1);
+    if (s.rescued) {
+      ctx.shadowColor = "rgba(255, 220, 120, 0.9)";
+      ctx.shadowBlur = 18 * glow;
+    }
+    // body
+    ctx.fillStyle = "#f4e8d3";
+    ctx.strokeStyle = "#5c3a21";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 15, 9.5, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // legs
+    ctx.strokeStyle = "#d8c7a8";
+    ctx.lineWidth = 3;
+    for (var leg = -1; leg <= 1; leg += 2) {
+      ctx.beginPath();
+      ctx.moveTo(leg * 5, 6);
+      ctx.lineTo(leg * 7, 13);
+      ctx.stroke();
+    }
+    // neck
+    ctx.fillStyle = "#f4e8d3";
+    ctx.strokeStyle = "#5c3a21";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.ellipse(6, -7, 5, 8.5, 0.5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // head
+    ctx.beginPath();
+    ctx.arc(11, -13, 6.5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // ear
+    ctx.beginPath();
+    ctx.moveTo(8, -18);
+    ctx.lineTo(6, -22);
+    ctx.lineTo(11, -20);
+    ctx.closePath();
+    ctx.fill();
+    // rainbow man
+    var manes = ["#ff5959", "#fca311", "#f2f94c", "#32d15e", "#39a0ed", "#a06ad8"];
+    for (var mi = 0; mi < manes.length; mi++) {
+      ctx.strokeStyle = manes[mi];
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(4, -12 + mi * 1.4);
+      ctx.quadraticCurveTo(2 + Math.sin(manePhase + mi) * 4, -6 + mi, -1 - mi * 0.5, 2 + mi * 1.6);
+      ctx.stroke();
+    }
+    // spiral horn
+    ctx.strokeStyle = "#ffe07a";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    for (var r = 0; r < 20; r++) {
+      var ang = manePhase * 0.14 + r * 0.28;
+      var rr = 1.1 + r * 0.11;
+      var hx = 11 + Math.cos(ang) * rr;
+      var hy = -16 - r * 0.11 + Math.sin(ang) * rr * 0.4;
+      if (r === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+    }
+    ctx.stroke();
+    if (s.rescued) {
+      ctx.globalAlpha = 0.7 + 0.3 * Math.sin(tick * 0.2 + s.id);
+      ctx.fillStyle = "#fff2b0";
+      ctx.beginPath();
+      ctx.arc(14, -16, 4.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // eye
+    ctx.fillStyle = "#241a12";
+    ctx.beginPath();
+    ctx.arc(13.5, -13.5, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawOllie(oc, tick, stunned) {
+    ctx.save();
+    ctx.translate(oc.x, oc.y);
+    // tentacles
+    ctx.strokeStyle = "#8e44e0";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    for (var i = 0; i < 8; i++) {
+      var a = (i / 8) * Math.PI * 2;
+      var wave = Math.sin(tick * 0.18 + i * 0.9) * 6;
+      var bx = Math.cos(a) * 20;
+      var by = Math.sin(a) * 20;
+      var tipX = Math.cos(a) * (34 + wave);
+      var tipY = Math.sin(a) * (34 + wave);
+      ctx.beginPath();
+      ctx.moveTo(bx * 0.6, by * 0.6);
+      ctx.quadraticCurveTo(bx * 1.7 + Math.sin(tick * 0.12 + i) * 8, by * 1.7 + Math.cos(tick * 0.1 + i) * 8, tipX, tipY);
+      ctx.stroke();
+    }
+    // body
+    var bodyGrad = ctx.createRadialGradient(-6, -8, 4, 0, 0, 24);
+    bodyGrad.addColorStop(0, "#d88bff");
+    bodyGrad.addColorStop(0.6, "#a44ae0");
+    bodyGrad.addColorStop(1, "#5e2fa0");
+    ctx.fillStyle = bodyGrad;
+    ctx.strokeStyle = "#3a1c6e";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(0, 0, 22, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // eyes
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(-7, -5, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7, -5, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#16102a";
+    ctx.beginPath(); ctx.arc(-6, -5, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(8, -5, 2.6, 0, Math.PI * 2); ctx.fill();
+    // beak-like smile
+    ctx.strokeStyle = "#3a1c6e";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(0, 4, 7, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+    if (stunned) {
+      ctx.fillStyle = "rgba(255, 220, 120, 0.95)";
+      ctx.beginPath();
+      ctx.arc(0, -30, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 220, 120, 0.7)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -30, 9 + Math.sin(tick * 0.3) * 2.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawTitleScene(now) {
+    drawBackground({ currents: [] }, now);
+    // big octopus floating below the panel
+    var ollieY = vh * 0.80;
+    drawOllie({ x: vw / 2, y: ollieY }, now / 16, false);
+    // seacorns dancing around it
+    for (var i = 0; i < 5; i++) {
+      var ang = (i / 5) * Math.PI * 2 + now * 0.00045;
+      var x = vw / 2 + Math.cos(ang) * Math.min(vw * 0.24, 260);
+      var y = ollieY + Math.sin(ang) * Math.min(vh * 0.085, 64);
+      var s = { x: x, y: y, id: i, vx: Math.cos(ang), vy: Math.sin(ang), rescued: false };
+      drawSeacorn(s, now / 16);
+    }
+  }
+
+  function drawGameWorld(now) {
+    var lvl = world.level;
+    var lvlScale = Math.max(vw / lvl.width, vh / lvl.height);
+    var viewW = vw / lvlScale;
+    var viewH = vh / lvlScale;
+    var oc = world.octopus;
+    var camX = clampN(oc.x - viewW / 2, 0, Math.max(0, lvl.width - viewW));
+    var camY = clampN(oc.y - viewH / 2, 0, Math.max(0, lvl.height - viewH));
+    if (viewW >= lvl.width) camX = (lvl.width - viewW) / 2;
+    if (viewH >= lvl.height) camY = (lvl.height - viewH) / 2;
+
+    drawBackground(lvl, now);
+
+    ctx.save();
+    ctx.translate(-camX * lvlScale, -camY * lvlScale);
+    ctx.scale(lvlScale, lvlScale);
+
+    drawCurrents(lvl);
+    drawStable(lvl);
+    drawRocks(lvl);
+    drawWhirlpools(lvl, world.tick);
+    drawInkClouds(world.inkClouds);
+    drawBubbles(world.bubbles, world.tick);
+    drawJellies(lvl, world.tick);
+    for (var i = 0; i < world.seacorns.length; i++) drawSeacorn(world.seacorns[i], world.tick);
+    drawOllie({ x: oc.x, y: oc.y }, world.tick, oc.stunned > 0);
+
+    ctx.restore();
+  }
+
+  function drawPauseVeil() {
+    ctx.save();
+    ctx.fillStyle = "rgba(2, 14, 24, 0.55)";
+    ctx.fillRect(0, 0, vw, vh);
+    ctx.restore();
+  }
+
+  function render(now) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, vw, vh);
+    if (state === "title") {
+      drawTitleScene(now);
+      return;
+    }
+    if (!world) return;
+    drawGameWorld(now);
+    if (state === "paused") drawPauseVeil();
+  }
+
+  // ---------------- main loop ----------------
+  var lastNow = performance.now();
+  var acc = 0;
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = now - lastNow;
+    lastNow = now;
+    if (dt > 120) dt = 120;
+    if (state === "playing") {
+      acc += dt;
+      while (acc >= 1000 / 60) {
+        acc -= 1000 / 60;
+        stepGame();
+        if (world && world.status !== "playing") break;
+      }
+    } else {
+      acc = 0;
+    }
+    render(now);
+  }
+
+  // ---------------- init ----------------
+  showScreen("title");
+  requestAnimationFrame(frame);
+
+  // expose for potential debugging
+  window.InkhornReef = { startLevel: startLevel, state: function () { return state; }, world: function () { return world; } };
+})();
+
+</script>
+</body>
+</html>

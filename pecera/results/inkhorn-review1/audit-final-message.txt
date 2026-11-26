@@ -1,0 +1,13 @@
+Done. Here's what exists and where:
+
+/app/game — verified and fixed (no broken code found; the earlier session's work holds up):
+- sim.js, index.html, levels/01-08.json, tools/solve.js, tests/ — untouched, all working. Tests 31/31 pass; bot wins all 8 levels (seeds 1–3 verified fresh this session; all 24 runs "won"); input logs are one char per tick; embedded LEVELS == disk JSON byte-for-byte; levels meet the task's constraints (4+ seacorns, 3+ required, required <= seacorns, 05–08 each have jellyfish/whirlpool/rocks).
+- Fresh screenshots re-verified: title, select, start1, play1, pause, win, lose, lvl5, lvl8, level-8 win (Next Level hidden at the last level), select_best (fresh localStorage persistence shown), plus embedded-vs-disk.
+- REVIEW.md — added a "Fresh re-verification pass (this session)" section at the top; per-screenshot sections, before/after comparison and still-wrong list are unchanged.
+- PROGRESS.md — added a 13:20 entry (what was checked, findings); the 05:58/07:10/12:54 entries are intact.
+- README.md — untouched; its claims (8 levels, ink economy, 45–110s limits, "bot wins every level", 24/24 seeds, localStorage best scores) all match the verified state.
+- Backups of all three docs are in /tmp (REVIEW.md.bak, PROGRESS.md.bak, README.md.bak, PROGRESS_v2.bak).
+
+One honest nit kept in the notes: win/lose screenshots read 0:00 elapsed because the rig teleports seacorns into the stable before the win fires; a real play shows real elapsed time.
+
+session_id: local-9f92d40f0b6a0e0a643775e9aa89777ac0ebdfb384520b7c415554fe8bf989c2
