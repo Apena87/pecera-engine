@@ -76,7 +76,11 @@ class PeceraHermes(Hermes):
         agent = cfg.setdefault("agent", {})
         agent.setdefault("max_turns", 400)
         agent["run_budget_seconds"] = int(self._budget_sec)
-        cfg["toolsets"] = ["terminal", "file", "todo", "skills", "code_execution"]
+        cfg["toolsets"] = [s.strip() for s in str(self.options.toolsets or "terminal,file,todo,skills,code_execution").split(",") if s.strip()]
+        if "vision" in cfg["toolsets"]:
+            # Send vision_analyze calls to the same model server, so images never go to an outside service.
+            base = getattr(connection, "execution_base_url", None) or "http://host.docker.internal:9300/v1"
+            cfg.setdefault("auxiliary", {})["vision"] = {"provider": "custom", "model": model, "base_url": str(base), "api_key": "no-key-required", "timeout": 600}
         cfg["terminal"] = {"backend": "local", "timeout": 300}
         cfg["compression"] = {"enabled": True, "threshold": 0.6, "target_ratio": 0.2, "protect_last_n": 20}
         cfg["tool_output"] = {"max_bytes": 20000, "max_lines": 600, "max_line_length": 2000}
