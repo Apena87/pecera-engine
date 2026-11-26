@@ -1,0 +1,28 @@
+{
+  "id": "05",
+  "name": "Jelly Shuffle",
+  "width": 1600,
+  "height": 1000,
+  "timeLimitSec": 160,
+  "seacorns": 8,
+  "required": 5,
+  "player": { "x": 130, "y": 500 },
+  "spawn": { "x": 290, "y": 500, "r": 120 },
+  "stable": { "x": 1320, "y": 340, "w": 220, "h": 320 },
+  "currents": [
+    { "x": 700, "y": 0, "w": 220, "h": 1000, "dx": 0, "dy": 0.3 }
+  ],
+  "rocks": [
+    { "x": 520, "y": 240, "r": 50 },
+    { "x": 520, "y": 760, "r": 50 }
+  ],
+  "whirlpools": [
+    { "x": 900, "y": 500, "r": 100, "strength": 1.2 }
+  ],
+  "jellyfish": [
+    { "path": [[850, 180], [850, 820]], "speed": 1.8 }
+  ],
+  "bubbles": [
+    { "x": 400, "y": 620 }
+  ]
+}
