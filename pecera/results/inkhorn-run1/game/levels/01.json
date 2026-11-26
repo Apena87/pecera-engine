@@ -1,0 +1,24 @@
+{
+  "id": "01",
+  "name": "First Swim",
+  "width": 1200,
+  "height": 800,
+  "timeLimitSec": 120,
+  "seacorns": 5,
+  "required": 3,
+  "player": {"x": 150, "y": 400},
+  "spawn": {"x": 150, "y": 400, "r": 110},
+  "stable": {"x": 950, "y": 300, "w": 200, "h": 200},
+  "currents": [
+    {"x": 420, "y": 0, "w": 380, "h": 800, "dx": 0.0, "dy": 0.35}
+  ],
+  "rocks": [
+    {"x": 620, "y": 620, "r": 55}
+  ],
+  "whirlpools": [],
+  "jellyfish": [],
+  "bubbles": [
+    {"x": 430, "y": 190},
+    {"x": 700, "y": 620}
+  ]
+}
