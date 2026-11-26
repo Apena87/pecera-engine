@@ -1,0 +1,29 @@
+PASS [files] sim.js exists
+PASS [files] index.html exists
+PASS [files] eight level files
+PASS [files] tools/solve.js exists
+PASS [files] README.md with content
+PASS [files] no network references in game files
+FAIL [log] PROGRESS.md has 8 or more timestamped entries :: 5 entries
+PASS [tests] 15+ tests and all pass under node --test :: tests=31 fail=0 exit=0
+PASS [sim] sim.js loads in Node with the five functions
+PASS [sim] no Math.random, Date or performance in sim.js
+PASS [levels] levels meet the format rules
+PASS [sim] deterministic: same level, seed and inputs give the same hashes
+PASS [sim] different seeds give different worlds
+PASS [sim] hash is 8 hex chars and changes with state
+PASS [sim] serialize and deserialize continue identically
+PASS [sim] world has the required fields
+PASS [rules] bounds, rocks and rescue counting hold under random play
+PASS [rules] ink: costs 20, needs 20, 15-tick cooldown
+PASS [rules] bubble adds 30 ink once :: second touch +0
+PASS [rules] stun: input does not move the octopus, counter drops by 1 :: dx=0 stunned=29
+PASS [rules] rescue and win at the first tick enough are in the stable :: rescued=3 status=won
+PASS [rules] lose when time runs out, then nothing changes
+PASS [rules] the herd moves on its own :: average move 544.4 px in 10 s
+PASS [rules] autopilotInput does not change the world
+PASS [bot] bot output replays to the same result :: 24/24 
+PASS [bot] bot wins every level with seed 1 :: 8/8
+PASS [bot] bot wins at least 18 of 24 runs :: 24/24
+PASS [browser] index.html loads with no console errors and draws a scene :: png 131489 B, errors 0 
+SCORE 52/54 = 0.963
