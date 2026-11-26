@@ -36,6 +36,11 @@ Total: 1,373 launches per token. The hridaya build is at 3,029.
 
 7. **Rig launcher.** `pecera\run.bat` already picks the expert placement from free VRAM and warns when the model would spill into system RAM. Still to add: a measured context size above 64k, and a test of pinning the 8 threads to the P-cores.
 
+8. **VRAM cache for hot experts in the CPU blocks.** Blocks 20 to 23 keep all their experts on the CPU, which is why mixC runs at 69 t/s instead of 81. Each token uses 8 of 128 experts per layer, so if a small set of experts takes most of the traffic, a few hundred MB of VRAM slots holding those experts could serve most lookups from the GPU. Idea taken from Betelgeuse-AI/Betelgeuse (a llama.cpp fork that pages experts from NVMe into a bounded VRAM pool, seeded by a usage profile). Its code is Linux and io_uring only, so the approach is borrowed, not the code.
+   - Step 1, cheap: log how often each expert in blocks 20 to 23 is chosen over a real Hermes session and a Terminal-Bench task. Report the share of lookups covered by the top 16, 32 and 64 experts per layer.
+   - Stop here if the top 32 cover less than about 60% of lookups. The cache would then cost more in copies than it saves.
+   - Step 2: a static cache. Load a fixed hot set per layer at start-up from the profile, route hits to the GPU copy and misses to the CPU. Measure decode speed and VRAM against `cpu4`.
+   - Step 3, only if step 2 pays: refresh the hot set during a session.
 ## Parked
 
 - DSpark speculative decoding. No gain reported on this card class.
