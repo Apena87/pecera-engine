@@ -13,6 +13,7 @@ Nothing here is specific to any benchmark task. Use with:
 Agent kwargs: audit=true|false, main_fraction=0.72, toolsets=terminal,file,todo,skills,code_execution
 """
 
+import os
 import time
 import tomllib
 from pathlib import Path
@@ -41,6 +42,8 @@ def _task_timeout_sec(logs_dir: Path, default: float = 900.0) -> float:
         hits = list(root.glob(f"*/{task}/task.toml")) or [
             p for p in root.glob("*/*/task.toml") if p.parent.name.startswith(task)
         ]
+        for extra in filter(None, os.environ.get("PECERA_TASK_DIRS", "").split(os.pathsep)):
+            hits += list(Path(extra).glob(f"{task}/task.toml"))
         if hits:
             return float(tomllib.loads(hits[0].read_text(encoding="utf-8"))["agent"]["timeout_sec"])
     except Exception:
