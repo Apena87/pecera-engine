@@ -106,3 +106,8 @@ Changes:
 - `soul.md`: a short list of the failure patterns above.
 - Desktop Hermes: the two skills installed and the SOUL.md section points to them (backup beside it).
 Not yet measured. Next step is a rerun of the failed tasks that finished inside the time limit, compared with their first result.
+
+## 2026-11-26: upstream caught up
+
+**Wait for #33063, then rebase onto upstream.** The A/B in RESULTS.md shows upstream master with PR #33063 matches the current build on speed, KLD, GSM8K and the long-context item. The daily launcher stays on the current build until the PR merges, because a launcher that depends on an unmerged PR would need rebuilding when the PR changes. The test branch is `test/pr33063` in a worktree at `C:\Llama\pecera-pr33063`. DSpark and DFlash2 drafting are now in upstream and are worth a separate test, since drafting could raise decode speed if a draft model for Inkling-2-Mini is available.
+

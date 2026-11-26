@@ -134,3 +134,22 @@ audit-off run on a subset, and the Terminal-Bench 2.1 revision of the 28 changed
 3. mteb-leaderboard, mteb-retrieve and custom-memory-heap-crash hit Harbor's 10-minute container start limit, most
    likely while their large images downloaded. All three started on the retry once the images were cached. Pulling
    images before a run would avoid this. Not fixed yet.
+
+## Upstream with PR #33063 against the current pecera build (2026-11-26)
+
+Upstream llama.cpp merged its own Inkling work between 24 and 26 November: fused glue kernels (#33060), the fused top-k MoE norm (#32943), the indexed bias in the Inkling graph (#33053), and DSpark and DFlash2 drafting (#32218, #33073). PR #33063, still open, adds the CUDA path for that indexed bias. The test build is branch `test/pr33063`: the PR head plus only our padded-expert load, the MSVC fix and the `pecera` folder. Same model (mixC), same placement (blocks 20-23 on CPU), 64k context, q4_0 KV, run back to back.
+
+| | Current pecera | Upstream + #33063 |
+|---|---|---|
+| Decode, short (two runs) | 70.1-71.4 t/s | 69.2-71.0 t/s |
+| Decode at 6.4k depth | 64.6-65.3 t/s | 64.7-65.3 t/s |
+| Prefill, 6.4k prompt | 1,249-1,281 t/s | 1,281-1,296 t/s |
+| Server VRAM after load (dedicated / shared) | 10,099 / 154 MiB | 10,214 / 284 MiB |
+| Mean KLD vs Q8_0 (50 x 512 wikitext-2) | 0.0379 | 0.0377 |
+| 99% KLD | 0.322 | 0.306 |
+| GSM8K, 40 questions | 40/40 earlier (mixB) | 40/40 |
+| 40k-token long-context item | 5/5 | 5/5, the same five answers |
+
+Speed and quality are the same within run-to-run noise. The upstream build uses about 115 MiB more dedicated VRAM. Greedy text is not byte-identical between the two (it splits after about 60 characters), as expected from different kernels with the same math. The fully-masked-row NaN fix in #33063 was not tested directly.
+
+Result: once #33063 merges, the engine can drop the capybaraonchain bias patch and the realugbun and top-k commits and keep only the padded-expert load, the MSVC fix and our own files. That removes the patches that conflict on every rebase.

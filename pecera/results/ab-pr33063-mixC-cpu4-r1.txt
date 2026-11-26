@@ -1,0 +1,10 @@
+tag=ab-pr33063-mixC-cpu4-r1 exe=C:\Llama\pecera-pr33063\build\bin\llama-server.exe ctx=65536 kv=q4_0 ot=blk\.(20|21|22|23)\.ffn_.*_exps=CPU extra= gpu_before=2341 MiB 2026-11-26T18:29:39
+up=True load_s=11 gpu_loaded=11498 MiB
+greedy run 1 n=200 eval=66.1 t/s
+greedy run 2 n=200 eval=70.7 t/s
+greedy run 3 n=200 eval=71.0 t/s
+greedy_text: energy cannot be created or destroyed. Second, energy can be converted from one form to another, but the conversion is never 100% efficient. Third, the entropy of a system at absolute zero is zero. The first law of thermodynamics is the law of conservation of energy. It states that energy cannot be created or destroyed, only converted from one form to another. This means that the total amount of energy in the universe is constant. The second law of thermodynamics states that energy can be converted from one form to another, but the conversion is never 100% efficient. This means that some energy is always lost in the process of conversion. For example, when a car engine burns fuel, some of the energy is converted into heat, which is lost to the environment. The third law of thermodynamics states that the entropy of a system at absolute zero is zero. Entropy is a measure of the disorder or randomness of a system. At absolute zero, a system
+chat run 1 prompt_n=6432 prefill=1296 t/s eval=65.3 t/s
+chat run 2 prompt_n=512 prefill=1095 t/s eval=65.1 t/s
+gpu_after=11586 MiB ram_free_gb=4.3
+DONE
