@@ -120,3 +120,5 @@ Not yet measured. Next step is a rerun of the failed tasks that finished inside 
 **Work moves to branch `next`: upstream master after PR #33063 merged, plus our padded expert load, the MSVC eps_eig fix and the pecera folder.** The rest of the old realugbun commits are dropped because upstream now has equivalent code (fused Inkling kernels, fused top-k norm, indexed bias). `main` on GitHub still points at the old base. Replacing it needs a force-push or a default-branch change, so that waits for Angel's OK. Until then the launcher keeps using the old build and roadmap work happens on `next`.
 
 `pecera\build.bat` now also builds llama-perplexity, llama-quantize and the new llama-expert-stats, and accepts more targets through `PECERA_EXTRA_TARGETS`.
+
+**2026-11-27: main moved to the new base.** Angel approved. Done without a force-push: a merge commit on next takes next's tree and keeps the old main as a parent, then main fast-forwarded to it. The old build stays in build-ugbun. The daily launcher now finds build\bin and runs the new build (checked: answers on port 9399, 64 t/s with Angel's desktop apps open).
