@@ -16,6 +16,6 @@ cmake -S "%ROOT%" -B "%ROOT%\%BDIR%" -G Ninja -DCMAKE_BUILD_TYPE=Release ^
   -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" ^
   -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DGGML_NATIVE=ON
 if errorlevel 1 exit /b 1
-cmake --build "%ROOT%\%BDIR%" --config Release -j 24 --target llama-server llama-bench llama-cli
+cmake --build "%ROOT%\%BDIR%" --config Release -j 24 --target llama-server llama-bench llama-cli llama-perplexity llama-quantize llama-expert-stats %PECERA_EXTRA_TARGETS%
 if errorlevel 1 exit /b 1
 echo BUILD_OK

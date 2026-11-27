@@ -30,7 +30,9 @@ while ($sw.Elapsed.TotalSeconds -lt 300 -and -not $p.HasExited) {
 if ($up) {
   foreach ($b in ($Benches -split ',')) {
     $name, $n = $b -split ':'
-    $args2 = @('-X', 'utf8', "$ev\evalrun.py", '--bench', $name, '--base', "http://127.0.0.1:$Port", '--outdir', "out_$Tag", '--workers', '1')
+    # quiz_<x> means the quiz bench with question file quiz_<x>.json (for example quiz_long)
+    if ($name -like 'quiz_*') { $bn = @('--bench', 'quiz', '--name', $name) } else { $bn = @('--bench', $name) }
+    $args2 = @('-X', 'utf8', "$ev\evalrun.py") + $bn + @('--base', "http://127.0.0.1:$Port", '--outdir', "out_$Tag", '--workers', '1')
     if ($n) { $args2 += @('--n', $n) }
     Push-Location $ev
     & $py @args2 2>&1 | Out-File $log -Append -Encoding ascii

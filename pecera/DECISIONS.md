@@ -114,3 +114,9 @@ Not yet measured. Next step is a rerun of the failed tasks that finished inside 
 
 **DFlash2 drafting stays off for daily use.** It speeds up plain completion and short code answers by 23-35% but slows down long-context and temperature-1.0 chat, which is most Hermes traffic. It needs one more expert block on the CPU to fit. It becomes worth retesting if roadmap item 8 (VRAM cache for hot experts) or item 5 (VRAM) frees enough memory to keep the verification batch on the GPU.
 
+
+## 2026-11-26: new base
+
+**Work moves to branch `next`: upstream master after PR #33063 merged, plus our padded expert load, the MSVC eps_eig fix and the pecera folder.** The rest of the old realugbun commits are dropped because upstream now has equivalent code (fused Inkling kernels, fused top-k norm, indexed bias). `main` on GitHub still points at the old base. Replacing it needs a force-push or a default-branch change, so that waits for Angel's OK. Until then the launcher keeps using the old build and roadmap work happens on `next`.
+
+`pecera\build.bat` now also builds llama-perplexity, llama-quantize and the new llama-expert-stats, and accepts more targets through `PECERA_EXTRA_TARGETS`.

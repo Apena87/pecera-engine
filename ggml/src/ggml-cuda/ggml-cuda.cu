@@ -2975,7 +2975,76 @@ static bool ggml_cuda_graph_debug_enabled() {
     return enabled;
 }
 
+struct ggml_cuda_op_profile {
+    struct entry { double ms = 0.0; int64_t n = 0; };
+    std::map<std::string, entry> entries;
+    cudaEvent_t start = nullptr;
+    cudaEvent_t stop  = nullptr;
+
+    static bool enabled() {
+        static const bool on = ggml_cuda_env_flag("GGML_CUDA_OP_PROFILE");
+        return on;
+    }
+
+    static std::string key(const ggml_tensor * node) {
+        std::string name = node->name;
+        std::string out;
+        for (size_t i = 0; i < name.size(); ++i) {
+            if (isdigit((unsigned char) name[i])) {
+                while (i + 1 < name.size() && isdigit((unsigned char) name[i + 1])) {
+                    ++i;
+                }
+                out += '#';
+            } else {
+                out += name[i];
+            }
+        }
+        return std::string(ggml_op_desc(node)) + " " + ggml_type_name(node->src[0] ? node->src[0]->type : node->type) + " " + out;
+    }
+
+    void begin(cudaStream_t stream) {
+        if (!start) {
+            CUDA_CHECK(cudaEventCreate(&start));
+            CUDA_CHECK(cudaEventCreate(&stop));
+        }
+        CUDA_CHECK(cudaEventRecord(start, stream));
+    }
+
+    void end(cudaStream_t stream, const ggml_tensor * node) {
+        CUDA_CHECK(cudaEventRecord(stop, stream));
+        CUDA_CHECK(cudaEventSynchronize(stop));
+        float ms = 0.0f;
+        CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));
+        auto & e = entries[key(node)];
+        e.ms += ms;
+        e.n  += 1;
+    }
+
+    ~ggml_cuda_op_profile() {
+        if (entries.empty()) {
+            return;
+        }
+        std::vector<std::pair<std::string, entry>> v(entries.begin(), entries.end());
+        std::sort(v.begin(), v.end(), [](const auto & a, const auto & b) { return a.second.ms > b.second.ms; });
+        double total = 0.0;
+        int64_t n = 0;
+        for (const auto & e : v) {
+            total += e.second.ms;
+            n     += e.second.n;
+        }
+        fprintf(stderr, "GGML_CUDA_OP_PROFILE: %.1f ms over %lld kernels\n", total, (long long) n);
+        for (size_t i = 0; i < v.size() && i < 60; ++i) {
+            fprintf(stderr, "  %8.1f ms %5.1f%% %8lld  %s\n", v[i].second.ms, 100.0*v[i].second.ms/total, (long long) v[i].second.n, v[i].first.c_str());
+        }
+    }
+};
+
+static ggml_cuda_op_profile g_cuda_op_profile;
+
 static bool ggml_cuda_graph_check_compability(ggml_cgraph * cgraph) {
+    if (ggml_cuda_op_profile::enabled()) {
+        return false;
+    }
 
     bool use_cuda_graph = true;
     // Loop over nodes in GGML graph to obtain info needed for CUDA graph
@@ -3344,7 +3413,14 @@ static void ggml_cuda_graph_evaluate_and_capture(ggml_backend_cuda_context * cud
                 GGML_UNUSED(integrated);
 #endif  // NDEBUG
 
+                const bool profile = ggml_cuda_op_profile::enabled();
+                if (profile) {
+                    g_cuda_op_profile.begin(cuda_ctx->stream());
+                }
                 bool ok = ggml_cuda_compute_forward(*cuda_ctx, node);
+                if (profile) {
+                    g_cuda_op_profile.end(cuda_ctx->stream(), node);
+                }
                 if (!ok) {
                     GGML_LOG_ERROR("%s: op not supported %s (%s)\n", __func__, node->name, ggml_op_name(node->op));
                 }
