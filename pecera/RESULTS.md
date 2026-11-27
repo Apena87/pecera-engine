@@ -173,3 +173,47 @@ Drafter: incoai/Inkling-2-Mini-DFlash2 (0.5B, Apache-2.0), as the Q8_0 GGUF from
 | `--spec-draft-p-min 0.5` | | slower in every case | |
 
 On this rig one verification step costs about 3.5 single-token steps, because the 8 drafted tokens together touch most experts in the five blocks on the CPU. Drafting therefore pays only above a mean accepted length of about 3.5: plain completion and short code answers gain 23-35%; long-context answers and sampled chat at temperature 1.0 get slower. Not enabled in the daily launcher. Greedy text with drafting was not byte-identical to greedy text without it after the first 60 characters, which matches the batched-versus-single kernel difference seen between builds; it was not investigated further.
+
+## Roadmap item 1: quality check, new base (`next`) vs the current build (2026-11-27)
+
+mixC, blocks 20-23 on the CPU, 64k, q4_0 KV, same seed and 4000-token thinking cap. HumanEval graded inside a throwaway Docker container with no network (`pecera\quality\he_grade_in_container.py`). The quiz was graded by reading the answers.
+
+| Test | next | current build |
+|---|---|---|
+| HumanEval 40 | 37 | 37 |
+| Quiz 26 | 25 | 25 |
+| Long-context item (40k tokens) | 5/5 | 5/5 (earlier run) |
+| MMLU-Pro 70 | 54 | 55 |
+
+- HumanEval: both fail 38 and 50 (decode functions that need the encoder from the prompt, which the answer left out). Each build fails one more: 93 on next, 120 on the current build.
+- Quiz: both fail H1 by summarizing a paper that does not exist. On T3 the current build also made an unneeded search_docs call next to the right run_sql call.
+- The decode rate during the evals (57-61 vs 66 t/s) is not comparable, because the quantizer for item 3 was using every CPU core while next was being evaluated.
+
+Verdict: no quality difference between the two builds.
+
+## Roadmap item 6: agent-loop cache settings (2026-11-27)
+
+Three recorded Hermes sessions (89 requests) replayed on next, daily settings (`pecera\cache\replay.py`).
+
+| Setting | Tokens processed | Tokens reused | Prompt time |
+|---|---|---|---|
+| defaults (32 checkpoints, min step 8192, cache-ram 8192) | 63,210 | 1,149,965 | 67.9 s |
+| --checkpoint-min-step 1024 | 63,210 | 1,149,965 | 67.3 s |
+| --checkpoint-min-step 0 | 65,536 | 1,147,639 | 68.3 s |
+| --cache-ram 0 | 63,210 | 1,149,965 | 66.6 s |
+| --ctx-checkpoints 0 | 65,536 | 1,147,639 | 61.7 s |
+
+The processed tokens are about what each turn adds, so the server already reuses the whole prefix. Defaults stay.
+
+## Roadmap item 3: dense weights below Q6_K (2026-11-26)
+
+Same experts as mixC, only the non-expert tensors and the output head change. KLD against Q8_0 (50 x 512 wikitext-2), speed from one bench.ps1 pass at 64k with blocks 20-23 on the CPU.
+
+| File | GiB | KLD | Same top | short decode | 6.4k chat decode | VRAM after |
+|---|---|---|---|---|---|---|
+| mixC (Q6_K) | 10.81 | 0.0377 | 91.7% | 67.6 | 63.7 | 11,720 |
+| mixC-d5 (Q5_K_M) | 10.74 | 0.0385 | 91.8% | 69.6 | 66.3 | 11,773 |
+| mixC-d4 (Q4_K_M) | 10.66 | 0.0417 | 91.4% | 71.9 | 65.4 | 11,459 |
+| mixC-d4o5 (Q4_K_M, Q5_K head) | 10.61 | 0.0420 | 91.3% | 71.3 | 65.4 | 11,422 |
+
+One pass each, so the speed differences are small and not confirmed.
